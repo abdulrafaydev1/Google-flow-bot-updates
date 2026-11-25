@@ -1,0 +1,1700 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Flow Studio — Google Flow Automation Bot</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <!-- ===================================================================== -->
+  <!-- TOP COMMAND HEADER (TWO-ZONE RESPONSIVE BAR)                          -->
+  <!-- ===================================================================== -->
+  <header class="studio-header">
+    <!-- Left Zone: Brand + Identity + Connection Status -->
+    <div class="header-left-zone">
+      <div class="header-brand-cluster">
+        <div class="brand-icon" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m22 8-6 4 6 4V8Z" />
+            <rect width="14" height="12" x="2" y="6" rx="2" ry="2" />
+          </svg>
+        </div>
+        <h1 class="header-brand-title">Flow Studio</h1>
+        <span class="pro-badge">PRO</span>
+        <span class="header-brand-subtitle">Flow Automation Bot</span>
+      </div>
+
+      <div class="header-identity-cluster">
+        <span id="botStateBadge" class="state-pill state-pill-idle">
+          <span class="state-pill-dot"></span>
+          <span>IDLE</span>
+        </span>
+
+        <span
+          id="instanceProfileBadge"
+          class="instance-profile-badge"
+          title="Active Profile Slot &amp; Isolated Chrome Remote Debugging Port"
+        >
+          Profile 1 &bull; :9222
+        </span>
+
+        <button
+          id="btnCheckUpdates"
+          type="button"
+          class="version-pill"
+          title="Check for Updates"
+        >
+          <span id="appVersionText" class="tabular-nums">v1.2.4</span>
+          <svg id="updateCheckIcon" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
+            <path d="M21 3v5h-5" />
+          </svg>
+        </button>
+
+        <!-- Chrome Connection Pill -->
+        <div id="connectionBadge" class="connection-pill">
+          <span id="connectionDot" class="w-2 h-2 rounded-full bg-rose-500 shrink-0"></span>
+          <div class="connection-pill-text">
+            <span id="connectionText" class="text-[11.5px] font-semibold text-slate-200 leading-tight truncate">Disconnected</span>
+            <span id="connectedUrlText" class="text-[10px] text-slate-500 font-studio-mono leading-tight truncate">No active Chrome tab attached</span>
+          </div>
+        </div>
+      </div>
+
+      <p id="headerSubtitleText" class="sr-only">
+        CDP :9222 &middot; Bulk Video Queue &amp; Verified Auto-Downloader
+      </p>
+    </div>
+
+    <!-- Right Zone: Action Toolbar -->
+    <div class="header-right-zone">
+      <!-- ChatGPT Auto Live Status Pill (Hidden When Idle) -->
+      <div id="chatgptLivePill" class="chatgpt-live-pill hidden" title="ChatGPT Auto is actively generating prompts">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse-dot shrink-0"></span>
+        <span id="chatgptLivePillText" class="truncate">ChatGPT Auto: Running...</span>
+        <button
+          id="btnStopChatgptHeader"
+          type="button"
+          class="chatgpt-live-stop-btn"
+          title="Stop ChatGPT Auto"
+        >
+          Stop
+        </button>
+      </div>
+
+      <!-- + New Window (Multi-Instance Profile Slot) -->
+      <button
+        id="btnNewBotWindow"
+        type="button"
+        class="btn btn-ghost header-action-btn"
+        title="Open a new independent Bot Window with its own Chrome profile, port, and output folder"
+      >
+        <svg width="14" height="14" class="text-sky-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="18" height="18" rx="3" />
+          <line x1="12" y1="8" x2="12" y2="16" />
+          <line x1="8" y1="12" x2="16" y2="12" />
+        </svg>
+        <span>+ New Window</span>
+      </button>
+
+      <!-- Phone Remote (Built-In Mobile PWA Control) -->
+      <button
+        id="btnOpenPhoneRemote"
+        type="button"
+        class="btn btn-ghost header-action-btn"
+        style="white-space: nowrap; flex-shrink: 0;"
+        title="Control all bot windows from your phone over Wi-Fi or Tailscale 4G/5G"
+      >
+        <svg width="14" height="14" class="text-indigo-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <rect width="14" height="20" x="5" y="2" rx="2" ry="2" />
+          <path d="M12 18h.01" />
+        </svg>
+        <span>📱 Phone Remote</span>
+      </button>
+
+      <!-- ChatGPT Auto Button -->
+      <button
+        id="btnOpenChatgptAuto"
+        type="button"
+        class="btn btn-chatgpt header-action-btn"
+        title="Open ChatGPT Auto 13-Phase Prompt Generator &amp; Auto-Queue Pipeline"
+      >
+        <svg width="15" height="15" class="text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 3l1.912 5.813a2 2 0 0 0 1.275 1.275L21 12l-5.813 1.912a2 2 0 0 0-1.275 1.275L12 21l-1.912-5.813a2 2 0 0 0-1.275-1.275L3 12l5.813-1.912a2 2 0 0 0 1.275-1.275L12 3Z" />
+        </svg>
+        <span>ChatGPT Auto</span>
+      </button>
+
+      <!-- Launch Chrome -->
+      <button
+        id="btnLaunchChrome"
+        type="button"
+        class="btn btn-amber-ghost header-action-btn"
+        title="Launch Chrome with persistent profile and remote debugging"
+      >
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+        </svg>
+        <span>Launch Chrome</span>
+      </button>
+
+      <!-- Connect -->
+      <button
+        id="btnConnectChrome"
+        type="button"
+        class="btn btn-primary header-action-btn"
+        title="Connect to Chrome and attach to Google Flow tab"
+      >
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+          <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+        </svg>
+        <span>Connect</span>
+      </button>
+
+      <!-- Settings -->
+      <button
+        id="btnOpenSettings"
+        type="button"
+        class="btn btn-ghost header-action-btn"
+        title="Configure DOM Selectors, Timeouts &amp; Recovery Settings"
+      >
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="21" x2="14" y1="4" y2="4" />
+          <line x1="10" x2="3" y1="4" y2="4" />
+          <line x1="21" x2="12" y1="12" y2="12" />
+          <line x1="8" x2="3" y1="12" y2="12" />
+          <line x1="21" x2="16" y1="20" y2="20" />
+          <line x1="12" x2="3" y1="20" y2="20" />
+          <line x1="14" x2="14" y1="2" y2="6" />
+          <line x1="8" x2="8" y1="10" y2="14" />
+          <line x1="16" x2="16" y1="18" y2="22" />
+        </svg>
+        <span>Settings</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- ===================================================================== -->
+  <!-- NON-INTRUSIVE AUTO-UPDATE NOTIFICATION BAR (HIDDEN BY DEFAULT)        -->
+  <!-- ===================================================================== -->
+  <div id="updateBanner" class="update-banner update-banner-info hidden" role="status" aria-live="polite">
+    <div class="flex items-center gap-2.5 min-w-0">
+      <span id="updateBannerDot" class="w-2 h-2 rounded-full bg-indigo-400 shrink-0"></span>
+      <span id="updateBannerMessage" class="truncate tabular-nums">Checking for updates...</span>
+    </div>
+
+    <div class="flex items-center gap-2.5 shrink-0">
+      <div id="updateProgressWrap" class="update-progress-track hidden">
+        <div id="updateProgressFill" class="update-progress-fill" style="width: 0%"></div>
+      </div>
+
+      <button
+        id="btnInstallUpdate"
+        type="button"
+        class="btn btn-update-install hidden"
+        title="Restart Flow Studio now and install the downloaded update"
+      >
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
+          <path d="M21 3v5h-5" />
+        </svg>
+        <span>Restart &amp; Install</span>
+      </button>
+
+      <button
+        id="btnDismissUpdate"
+        type="button"
+        class="btn btn-pill-sm"
+        title="Dismiss update notification"
+      >
+        <span>Later</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- VIEWPORT-LOCKED STUDIO WORKSPACE GRID                                 -->
+  <!-- ===================================================================== -->
+  <main class="studio-workspace">
+
+    <!-- =================================================================== -->
+    <!-- LEFT COLUMN: COMPACT PROMPT COMPOSER + PRO PROMPT QUEUE             -->
+    <!-- =================================================================== -->
+    <section class="studio-col">
+
+      <!-- Bulk Prompt Input Card -->
+      <div class="studio-panel shrink-0 flex flex-col overflow-hidden">
+        <div class="studio-panel-header">
+          <div class="flex items-center gap-2.5 min-w-0">
+            <svg width="15" height="15" class="text-indigo-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 20h9" />
+              <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
+            </svg>
+            <h2 class="text-[13px] font-semibold text-white tracking-tight">Bulk Prompt Input</h2>
+            <select
+              id="promptSplitMode"
+              class="studio-mode-select"
+              title="Choose how pasted prompts are split into queue items"
+            >
+              <option value="smart" selected>Smart Block Mode</option>
+              <option value="line">1 Line = 1 Prompt</option>
+            </select>
+          </div>
+          <span
+            id="promptLineCount"
+            class="px-2.5 py-0.5 rounded-full text-[11px] font-medium font-studio-mono tabular-nums bg-indigo-500/10 text-indigo-300 border border-indigo-500/25 shrink-0"
+          >
+            0 prompts ready
+          </span>
+        </div>
+
+        <div class="p-3 flex flex-col gap-2.5">
+          <textarea
+            id="bulkPromptInput"
+            rows="4"
+            placeholder="Paste multi-line prompts (Prompt 1 / Shot 1 / Camera: / Sound:) or separate blocks with Prompt #, ---, or double blank lines..."
+            class="studio-textarea w-full"
+          ></textarea>
+
+          <div class="flex items-center justify-between gap-2">
+            <button
+              id="btnImportFile"
+              type="button"
+              class="btn btn-ghost"
+            >
+              <svg width="15" height="15" class="text-indigo-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="17 8 12 3 7 8" />
+                <line x1="12" x2="12" y1="3" y2="15" />
+              </svg>
+              <span>Import TXT / CSV</span>
+            </button>
+
+            <button
+              id="btnAddPrompts"
+              type="button"
+              class="btn btn-primary"
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="12" x2="12" y1="5" y2="19" />
+                <line x1="5" x2="19" y1="12" y2="12" />
+              </svg>
+              <span>Add to Queue</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pro Prompt Queue Panel -->
+      <div class="studio-panel queue-panel-card flex flex-col flex-1 min-h-0 overflow-hidden">
+        <!-- Queue Toolbar Header -->
+        <div class="studio-panel-header">
+          <div class="flex items-center gap-2.5 min-w-0">
+            <svg width="15" height="15" class="text-sky-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="8" x2="21" y1="6" y2="6" />
+              <line x1="8" x2="21" y1="12" y2="12" />
+              <line x1="8" x2="21" y1="18" y2="18" />
+              <line x1="3" x2="3.01" y1="6" y2="6" />
+              <line x1="3" x2="3.01" y1="12" y2="12" />
+              <line x1="3" x2="3.01" y1="18" y2="18" />
+            </svg>
+            <h2 class="text-[13px] font-semibold text-white tracking-tight">Prompt Queue</h2>
+            <span
+              id="queueTotalBadge"
+              class="px-2 py-0.5 text-[11px] font-studio-mono tabular-nums rounded-md bg-white/[0.04] text-slate-300 border border-white/[0.08]"
+            >
+              0 items
+            </span>
+          </div>
+
+          <div class="queue-header-actions flex flex-wrap items-center gap-1.5 shrink-0">
+            <button
+              id="btnCopyAllPrompts"
+              type="button"
+              class="btn btn-pill-sm btn-pill-indigo"
+              title="Copy all prompts in the queue to clipboard"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+                <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+              </svg>
+              <span>Copy All</span>
+            </button>
+            <button
+              id="btnRetryFailed"
+              type="button"
+              class="btn btn-pill-sm btn-pill-amber"
+              title="Reset all Failed prompts back to Pending"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                <path d="M3 3v5h5" />
+              </svg>
+              <span>Retry Failed</span>
+            </button>
+            <button
+              id="btnClearCompleted"
+              type="button"
+              class="btn btn-pill-sm"
+              title="Remove Completed prompts from list"
+            >
+              <span>Clear Done</span>
+            </button>
+            <button
+              id="btnClearAll"
+              type="button"
+              class="btn btn-pill-sm btn-pill-rose"
+              title="Remove all prompts from queue"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 6h18" />
+                <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+                <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+              </svg>
+              <span>Clear All</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Scrollable Compact Queue Table -->
+        <div id="queueScrollContainer" class="flex-1 overflow-y-auto relative min-h-0">
+          <table class="w-full text-left border-collapse table-fixed">
+            <thead class="queue-table-head">
+              <tr>
+                <th class="py-2 px-3 w-[56px]">#</th>
+                <th class="py-2 px-3">Prompt &amp; Output</th>
+                <th class="py-2 px-3 w-[166px]">Status</th>
+                <th class="py-2 px-3 w-[134px] text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="queueTableBody" class="text-xs">
+              <!-- Populated dynamically by renderer.js -->
+            </tbody>
+          </table>
+
+          <!-- Stylish Empty State -->
+          <div id="queueEmptyState" class="flex flex-col items-center justify-center py-14 px-6 text-center">
+            <div class="empty-state-ring">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+                <path d="m22 8-6 4 6 4V8Z" />
+                <rect width="14" height="12" x="2" y="6" rx="2" ry="2" />
+              </svg>
+            </div>
+            <p class="text-[13.5px] font-semibold text-slate-200 tracking-tight">No prompts in queue yet</p>
+            <p class="text-[12px] text-slate-500 mt-1 max-w-xs leading-relaxed">
+              Paste your batch in the composer above or click <span class="text-slate-300 font-medium">Import TXT / CSV</span> to queue videos for automated generation.
+            </p>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- =================================================================== -->
+    <!-- RIGHT COLUMN: MISSION CONTROL PANEL + COLOR-CODED TERMINAL          -->
+    <!-- =================================================================== -->
+    <section class="studio-col">
+
+      <!-- Output & Execution Controls Card -->
+      <div class="studio-panel shrink-0 flex flex-col overflow-hidden">
+        <div class="studio-panel-header">
+          <div class="flex items-center gap-2">
+            <svg width="15" height="15" class="text-emerald-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10" />
+              <polygon points="10 8 16 12 10 16 10 8" />
+            </svg>
+            <h2 class="text-[13px] font-semibold text-white tracking-tight">Mission Control</h2>
+          </div>
+          <span class="text-[10.5px] text-slate-500 font-studio-mono">Sequential .mp4 export</span>
+        </div>
+
+        <div class="p-3.5 flex flex-col gap-3">
+          <!-- Unified Output Directory Input Group -->
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-400 mb-1.5">Video Output Directory</label>
+            <div class="path-input-group">
+              <input
+                id="outputPathInput"
+                type="text"
+                readonly
+                value=""
+                placeholder="Select download folder..."
+                class="truncate"
+              />
+              <button
+                id="btnSelectFolder"
+                type="button"
+                class="path-group-btn"
+                title="Browse for output directory"
+              >
+                <svg width="14" height="14" class="text-indigo-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z" />
+                </svg>
+                <span>Browse</span>
+              </button>
+              <button
+                id="btnOpenFolder"
+                type="button"
+                class="path-group-btn"
+                title="Open Output Folder in Windows Explorer"
+              >
+                <svg width="13" height="13" class="text-slate-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+                  <polyline points="15 3 21 3 21 9" />
+                  <line x1="10" x2="21" y1="14" y2="3" />
+                </svg>
+                <span>Open</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Videos Per Prompt: Segmented Pill Control + Custom Input -->
+          <div class="studio-well vpp-row-well px-3 py-2 flex items-center justify-between gap-2">
+            <div class="min-w-0">
+              <label for="videosPerPromptInput" class="block text-[12px] font-semibold text-slate-200 leading-tight">Videos Per Prompt</label>
+              <span class="text-[10.5px] text-slate-500">Variations generated per item</span>
+            </div>
+
+            <div class="flex items-center gap-2 shrink-0">
+              <div class="segmented-track" role="group" aria-label="Videos per prompt quick select">
+                <button type="button" data-vpp="1" class="vpp-quick-btn vpp-active">1x</button>
+                <button type="button" data-vpp="2" class="vpp-quick-btn">2x</button>
+                <button type="button" data-vpp="3" class="vpp-quick-btn">3x</button>
+                <button type="button" data-vpp="4" class="vpp-quick-btn">4x</button>
+              </div>
+              <input
+                id="videosPerPromptInput"
+                type="number"
+                min="1"
+                max="20"
+                value="1"
+                class="vpp-custom-input"
+                title="Custom videos per prompt (1 - 20)"
+              />
+            </div>
+          </div>
+
+          <!-- 4-Button Execution Action Bar -->
+          <div class="exec-action-grid grid grid-cols-4 gap-2">
+            <button
+              id="btnStartBot"
+              type="button"
+              class="btn btn-exec btn-exec-start"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                <polygon points="6 3 20 12 6 21 6 3" />
+              </svg>
+              <span>Start Bot</span>
+            </button>
+
+            <button
+              id="btnPauseBot"
+              type="button"
+              disabled
+              class="btn btn-exec btn-exec-pause"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round">
+                <rect width="4" height="16" x="6" y="4" rx="1" />
+                <rect width="4" height="16" x="14" y="4" rx="1" />
+              </svg>
+              <span>Pause</span>
+            </button>
+
+            <button
+              id="btnResumeBot"
+              type="button"
+              disabled
+              class="btn btn-exec btn-exec-resume"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="5 3 19 12 5 21 5 3" />
+              </svg>
+              <span>Resume</span>
+            </button>
+
+            <button
+              id="btnStopBot"
+              type="button"
+              disabled
+              class="btn btn-exec btn-exec-stop"
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                <rect width="14" height="14" x="5" y="5" rx="2.5" />
+              </svg>
+              <span>Stop</span>
+            </button>
+          </div>
+
+          <!-- Animated Progress Track + 4 Pro KPI Stat Tiles -->
+          <div class="studio-well p-3 flex flex-col gap-2.5">
+            <div class="flex items-center justify-between text-[11.5px]">
+              <span class="text-slate-400 font-medium">
+                <strong id="progressFractionText" class="text-slate-100 font-studio-mono tabular-nums">0 / 0</strong> completed
+              </span>
+              <span id="progressPercentText" class="font-studio-mono tabular-nums font-bold text-emerald-400 text-[12px]">0%</span>
+            </div>
+
+            <div class="progress-track">
+              <div
+                id="progressBarFill"
+                class="progress-fill"
+                style="width: 0%"
+              ></div>
+            </div>
+
+            <div class="kpi-stat-grid grid grid-cols-4 gap-2 pt-0.5">
+              <div class="kpi-tile kpi-tile-pending">
+                <div class="kpi-label text-slate-400">Pending</div>
+                <div id="statPending" class="kpi-value text-slate-100">0</div>
+              </div>
+              <div class="kpi-tile kpi-tile-generating">
+                <div class="kpi-label text-sky-400">Generating</div>
+                <div id="statGenerating" class="kpi-value text-sky-400">0</div>
+              </div>
+              <div class="kpi-tile kpi-tile-completed">
+                <div class="kpi-label text-emerald-400">Completed</div>
+                <div id="statCompleted" class="kpi-value text-emerald-400">0</div>
+              </div>
+              <div class="kpi-tile kpi-tile-failed">
+                <div class="kpi-label text-rose-400">Failed</div>
+                <div id="statFailed" class="kpi-value text-rose-400">0</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Developer Console: Live Activity Log Terminal -->
+      <div class="studio-panel log-panel-card flex flex-col flex-1 min-h-0 overflow-hidden">
+        <div class="studio-panel-header">
+          <div class="flex items-center gap-2 min-w-0">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse-dot shrink-0"></span>
+            <svg width="14" height="14" class="text-slate-400 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="4 17 10 11 4 5" />
+              <line x1="12" x2="20" y1="19" y2="19" />
+            </svg>
+            <h2 class="text-[11.5px] font-bold uppercase tracking-wider text-slate-300 truncate">Live Activity Log</h2>
+          </div>
+
+          <div class="flex items-center gap-2 shrink-0">
+            <label class="studio-switch gap-2 text-[11px] font-medium text-slate-400 hover:text-slate-200 transition mr-1">
+              <input id="chkAutoScroll" type="checkbox" checked />
+              <span class="studio-switch-track"></span>
+              <span>Auto-scroll</span>
+            </label>
+
+            <button
+              id="btnCopyLogs"
+              type="button"
+              class="btn-ghost-sm"
+              title="Copy all logs"
+            >
+              Copy
+            </button>
+
+            <button
+              id="btnClearLog"
+              type="button"
+              class="btn btn-pill-sm"
+              title="Clear terminal log output"
+            >
+              <span>Clear</span>
+            </button>
+          </div>
+        </div>
+
+        <div
+          id="terminalLogContainer"
+          class="terminal-window flex-1 overflow-y-auto min-h-0"
+        >
+          <!-- Color-coded timestamped log entries appended dynamically -->
+        </div>
+      </div>
+
+    </section>
+  </main>
+
+  <!-- ===================================================================== -->
+  <!-- PREMIUM FROSTED-GLASS SETTINGS MODAL                                  -->
+  <!-- ===================================================================== -->
+  <div
+    id="settingsModal"
+    class="modal-backdrop fixed inset-0 z-50 hidden items-center justify-center p-4"
+  >
+    <div class="modal-card w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <!-- Modal Header -->
+      <div class="px-6 py-4 border-b border-white/[0.075] flex items-center justify-between shrink-0">
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-lg bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="21" x2="14" y1="4" y2="4" />
+              <line x1="10" x2="3" y1="4" y2="4" />
+              <line x1="21" x2="12" y1="12" y2="12" />
+              <line x1="8" x2="3" y1="12" y2="12" />
+              <line x1="21" x2="16" y1="20" y2="20" />
+              <line x1="12" x2="3" y1="20" y2="20" />
+              <line x1="14" x2="14" y1="2" y2="6" />
+              <line x1="8" x2="8" y1="10" y2="14" />
+              <line x1="16" x2="16" y1="18" y2="22" />
+            </svg>
+          </div>
+          <div>
+            <h3 class="text-[15px] font-bold text-white tracking-tight">Selectors &amp; Studio Settings</h3>
+            <p class="text-[11.5px] text-slate-400">Configure Chrome CDP attachment, DOM selectors, and automatic recovery behavior.</p>
+          </div>
+        </div>
+        <button
+          id="btnCloseSettingsTop"
+          type="button"
+          class="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/[0.06] transition"
+          title="Close Settings"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" x2="6" y1="6" y2="18" />
+            <line x1="6" x2="18" y1="6" y2="18" />
+          </svg>
+        </button>
+      </div>
+
+      <!-- Modal Form Body (3 Grouped Sections) -->
+      <div class="p-5 flex-1 min-h-0 overflow-y-auto space-y-4 text-xs">
+
+        <!-- Section 1: Chrome Connection -->
+        <div class="modal-section-card">
+          <div class="modal-section-title">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+            </svg>
+            <span>Chrome Connection</span>
+          </div>
+          <div class="grid grid-cols-3 gap-3">
+            <div class="col-span-2">
+              <label for="cfgTargetUrlKeyword" class="modal-field-label">
+                Target Tab URL Keyword <span class="modal-field-code">targetUrlKeyword</span>
+              </label>
+              <input
+                id="cfgTargetUrlKeyword"
+                type="text"
+                class="studio-input w-full px-3 py-2 font-studio-mono text-[11.5px]"
+                placeholder="flow.google.com, labs.google"
+              />
+            </div>
+            <div>
+              <label for="cfgCdpPort" class="modal-field-label">
+                CDP Port <span class="modal-field-code">cdpPort</span>
+              </label>
+              <input
+                id="cfgCdpPort"
+                type="number"
+                min="1024"
+                max="65535"
+                class="studio-input w-full px-3 py-2 font-studio-mono tabular-nums text-[11.5px]"
+                placeholder="9222"
+              />
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 2: DOM Selectors -->
+        <div class="modal-section-card">
+          <div class="modal-section-title">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="16 18 22 12 16 6" />
+              <polyline points="8 6 2 12 8 18" />
+            </svg>
+            <span>DOM Selectors</span>
+          </div>
+          <div class="space-y-3">
+            <div>
+              <label for="cfgPromptInputSelector" class="modal-field-label">
+                Prompt Input <span class="modal-field-code">promptInputSelector</span>
+              </label>
+              <input
+                id="cfgPromptInputSelector"
+                type="text"
+                class="studio-input w-full px-3 py-2 font-studio-mono text-[11.5px]"
+                placeholder="textarea, [contenteditable='true'], [role='textbox']"
+              />
+            </div>
+
+            <div>
+              <label for="cfgGenerateButtonSelector" class="modal-field-label">
+                Generate Button <span class="modal-field-code">generateButtonSelector</span>
+              </label>
+              <input
+                id="cfgGenerateButtonSelector"
+                type="text"
+                class="studio-input w-full px-3 py-2 font-studio-mono text-[11.5px]"
+                placeholder="button[aria-label*='Generate'], button[type='submit']"
+              />
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label for="cfgVideoElementSelector" class="modal-field-label">
+                  Video Element <span class="modal-field-code">videoElementSelector</span>
+                </label>
+                <input
+                  id="cfgVideoElementSelector"
+                  type="text"
+                  class="studio-input w-full px-3 py-2 font-studio-mono text-[11.5px]"
+                  placeholder="video"
+                />
+              </div>
+
+              <div>
+                <label for="cfgDownloadButtonSelector" class="modal-field-label">
+                  Download Button <span class="modal-field-code">downloadButtonSelector</span>
+                </label>
+                <input
+                  id="cfgDownloadButtonSelector"
+                  type="text"
+                  class="studio-input w-full px-3 py-2 font-studio-mono text-[11.5px]"
+                  placeholder="button[aria-label*='Download'], a[download]"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section 3: Timing & Auto-Recovery -->
+        <div class="modal-section-card">
+          <div class="modal-section-title">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10" />
+              <polyline points="12 6 12 12 16 14" />
+            </svg>
+            <span>Timing &amp; Auto-Recovery</span>
+          </div>
+
+          <div class="grid grid-cols-4 gap-3">
+            <div>
+              <label for="cfgGenerationTimeoutSec" class="modal-field-label">Timeout (sec)</label>
+              <input
+                id="cfgGenerationTimeoutSec"
+                type="number"
+                min="15"
+                max="1200"
+                class="studio-input w-full px-3 py-2 font-studio-mono tabular-nums text-[11.5px]"
+              />
+            </div>
+
+            <div>
+              <label for="cfgDelayBetweenPromptsSec" class="modal-field-label">Cooldown (sec)</label>
+              <input
+                id="cfgDelayBetweenPromptsSec"
+                type="number"
+                min="1"
+                max="600"
+                class="studio-input w-full px-3 py-2 font-studio-mono tabular-nums text-[11.5px]"
+              />
+            </div>
+
+            <div>
+              <label for="cfgMaxRetries" class="modal-field-label">Max Retries</label>
+              <input
+                id="cfgMaxRetries"
+                type="number"
+                min="0"
+                max="5"
+                class="studio-input w-full px-3 py-2 font-studio-mono tabular-nums text-[11.5px]"
+              />
+            </div>
+
+            <div>
+              <label for="cfgKeystrokeDelayMs" class="modal-field-label">Keystroke (ms)</label>
+              <input
+                id="cfgKeystrokeDelayMs"
+                type="number"
+                min="0"
+                max="200"
+                class="studio-input w-full px-3 py-2 font-studio-mono tabular-nums text-[11.5px]"
+              />
+            </div>
+          </div>
+
+          <!-- New Project Click Random Delay (Seconds) -->
+          <div class="mt-3.5 pt-3.5 border-t border-white/[0.06]">
+            <div class="flex items-center justify-between gap-2 mb-2">
+              <div class="text-[12px] font-semibold text-slate-200">
+                New Project Click Random Delay (Seconds)
+              </div>
+              <div class="segmented-track" role="group" aria-label="New Project Random Delay Presets">
+                <button
+                  type="button"
+                  data-delay-min="1"
+                  data-delay-max="4"
+                  class="delay-preset-btn"
+                >
+                  1s – 4s
+                </button>
+                <button
+                  type="button"
+                  data-delay-min="1"
+                  data-delay-max="10"
+                  class="delay-preset-btn"
+                >
+                  1s – 10s
+                </button>
+                <button
+                  type="button"
+                  data-delay-min="3"
+                  data-delay-max="8"
+                  class="delay-preset-btn"
+                >
+                  3s – 8s
+                </button>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label for="settingNewProjectDelayMin" class="modal-field-label">
+                  Min (sec) <span class="modal-field-code">newProjectDelayMinSec</span>
+                </label>
+                <input
+                  id="settingNewProjectDelayMin"
+                  type="number"
+                  min="0"
+                  max="120"
+                  step="0.5"
+                  class="studio-input w-full px-3 py-2 font-studio-mono tabular-nums text-[11.5px]"
+                  placeholder="2"
+                />
+              </div>
+
+              <div>
+                <label for="settingNewProjectDelayMax" class="modal-field-label">
+                  Max (sec) <span class="modal-field-code">newProjectDelayMaxSec</span>
+                </label>
+                <input
+                  id="settingNewProjectDelayMax"
+                  type="number"
+                  min="0"
+                  max="120"
+                  step="0.5"
+                  class="studio-input w-full px-3 py-2 font-studio-mono tabular-nums text-[11.5px]"
+                  placeholder="6"
+                />
+              </div>
+            </div>
+
+            <p class="text-[11px] text-slate-400 mt-1.5 leading-snug">
+              Picks a fresh random wait time between Min and Max seconds after Google Flow opens before clicking "New Project".
+            </p>
+          </div>
+
+          <!-- Pre-Paste Random Delay (Seconds) -->
+          <div class="mt-3.5 pt-3.5 border-t border-white/[0.06]">
+            <div class="flex items-center justify-between gap-2 mb-2">
+              <div class="text-[12px] font-semibold text-slate-200">
+                Pre-Paste Random Delay (Seconds)
+              </div>
+              <div class="segmented-track" role="group" aria-label="Pre-Paste Random Delay Presets">
+                <button
+                  type="button"
+                  data-prepaste-min="1"
+                  data-prepaste-max="4"
+                  class="delay-preset-btn prepaste-preset-btn"
+                >
+                  1s – 4s
+                </button>
+                <button
+                  type="button"
+                  data-prepaste-min="2"
+                  data-prepaste-max="6"
+                  class="delay-preset-btn prepaste-preset-btn"
+                >
+                  2s – 6s
+                </button>
+                <button
+                  type="button"
+                  data-prepaste-min="3"
+                  data-prepaste-max="10"
+                  class="delay-preset-btn prepaste-preset-btn"
+                >
+                  3s – 10s
+                </button>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label for="settingPrePasteDelayMin" class="modal-field-label">
+                  Min (sec) <span class="modal-field-code">prePasteDelayMinSec</span>
+                </label>
+                <input
+                  id="settingPrePasteDelayMin"
+                  type="number"
+                  min="0"
+                  max="120"
+                  step="0.5"
+                  class="studio-input w-full px-3 py-2 font-studio-mono tabular-nums text-[11.5px]"
+                  placeholder="2"
+                />
+              </div>
+
+              <div>
+                <label for="settingPrePasteDelayMax" class="modal-field-label">
+                  Max (sec) <span class="modal-field-code">prePasteDelayMaxSec</span>
+                </label>
+                <input
+                  id="settingPrePasteDelayMax"
+                  type="number"
+                  min="0"
+                  max="120"
+                  step="0.5"
+                  class="studio-input w-full px-3 py-2 font-studio-mono tabular-nums text-[11.5px]"
+                  placeholder="6"
+                />
+              </div>
+            </div>
+
+            <p class="text-[11px] text-slate-400 mt-1.5 leading-snug">
+              Waits a fresh random time between Min and Max seconds before pasting each prompt into the Google Flow input box.
+            </p>
+          </div>
+
+          <!-- Pre-Submit Random Delay (Seconds) -->
+          <div class="mt-3.5 pt-3.5 border-t border-white/[0.06]">
+            <div class="flex items-center justify-between gap-2 mb-2">
+              <div class="text-[12px] font-semibold text-slate-200">
+                Pre-Submit Random Delay (Seconds)
+              </div>
+              <div class="segmented-track" role="group" aria-label="Pre-Submit Random Delay Presets">
+                <button
+                  type="button"
+                  data-presubmit-min="1"
+                  data-presubmit-max="3"
+                  class="delay-preset-btn presubmit-preset-btn"
+                >
+                  1s – 3s
+                </button>
+                <button
+                  type="button"
+                  data-presubmit-min="1"
+                  data-presubmit-max="5"
+                  class="delay-preset-btn presubmit-preset-btn"
+                >
+                  1s – 5s
+                </button>
+                <button
+                  type="button"
+                  data-presubmit-min="2"
+                  data-presubmit-max="6"
+                  class="delay-preset-btn presubmit-preset-btn"
+                >
+                  2s – 6s
+                </button>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label for="settingPreSubmitDelayMin" class="modal-field-label">
+                  Min (sec) <span class="modal-field-code">preSubmitDelayMinSec</span>
+                </label>
+                <input
+                  id="settingPreSubmitDelayMin"
+                  type="number"
+                  min="0"
+                  max="120"
+                  step="0.5"
+                  class="studio-input w-full px-3 py-2 font-studio-mono tabular-nums text-[11.5px]"
+                  placeholder="1"
+                />
+              </div>
+
+              <div>
+                <label for="settingPreSubmitDelayMax" class="modal-field-label">
+                  Max (sec) <span class="modal-field-code">preSubmitDelayMaxSec</span>
+                </label>
+                <input
+                  id="settingPreSubmitDelayMax"
+                  type="number"
+                  min="0"
+                  max="120"
+                  step="0.5"
+                  class="studio-input w-full px-3 py-2 font-studio-mono tabular-nums text-[11.5px]"
+                  placeholder="4"
+                />
+              </div>
+            </div>
+
+            <p class="text-[11px] text-slate-400 mt-1.5 leading-snug">
+              Waits a fresh random time after pasting the prompt before clicking Send or pressing Enter.
+            </p>
+          </div>
+
+          <!-- Prompt Submit Method -->
+          <div class="mt-3.5 pt-3.5 border-t border-white/[0.06]">
+            <label for="settingSubmitMethod" class="modal-field-label">
+              Prompt Submit Method <span class="modal-field-code">submitMethod</span>
+            </label>
+            <select
+              id="settingSubmitMethod"
+              class="studio-select w-full px-3 py-2 font-studio-mono text-[11.5px]"
+            >
+              <option value="random">Random (Mouse Click / Keyboard Enter)</option>
+              <option value="click">Mouse Click Only (Send Button)</option>
+              <option value="enter">Keyboard Enter Only</option>
+            </select>
+            <p class="text-[11px] text-slate-400 mt-1.5 leading-snug">
+              In Random mode, each prompt randomly submits via either Mouse Click or Keyboard Enter (with safe fallback if Enter is ignored).
+            </p>
+          </div>
+
+          <!-- Card Error Retry Random Delay (Seconds) -->
+          <div class="mt-3.5 pt-3.5 border-t border-white/[0.06]">
+            <div class="flex items-center justify-between gap-2 mb-2">
+              <div class="text-[12px] font-semibold text-slate-200">
+                Card Error Retry Random Delay (Seconds)
+              </div>
+              <div class="segmented-track" role="group" aria-label="Card Error Retry Delay Presets">
+                <button
+                  type="button"
+                  data-cardretry-delay-min="1"
+                  data-cardretry-delay-max="4"
+                  class="delay-preset-btn cardretry-delay-preset-btn"
+                >
+                  1s – 4s
+                </button>
+                <button
+                  type="button"
+                  data-cardretry-delay-min="2"
+                  data-cardretry-delay-max="6"
+                  class="delay-preset-btn cardretry-delay-preset-btn"
+                >
+                  2s – 6s
+                </button>
+                <button
+                  type="button"
+                  data-cardretry-delay-min="4"
+                  data-cardretry-delay-max="10"
+                  class="delay-preset-btn cardretry-delay-preset-btn"
+                >
+                  4s – 10s
+                </button>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label for="settingCardRetryDelayMin" class="modal-field-label">
+                  Min (sec) <span class="modal-field-code">cardRetryDelayMinSec</span>
+                </label>
+                <input
+                  id="settingCardRetryDelayMin"
+                  type="number"
+                  min="0"
+                  max="120"
+                  step="0.5"
+                  class="studio-input w-full px-3 py-2 font-studio-mono tabular-nums text-[11.5px]"
+                  placeholder="2"
+                />
+              </div>
+
+              <div>
+                <label for="settingCardRetryDelayMax" class="modal-field-label">
+                  Max (sec) <span class="modal-field-code">cardRetryDelayMaxSec</span>
+                </label>
+                <input
+                  id="settingCardRetryDelayMax"
+                  type="number"
+                  min="0"
+                  max="120"
+                  step="0.5"
+                  class="studio-input w-full px-3 py-2 font-studio-mono tabular-nums text-[11.5px]"
+                  placeholder="6"
+                />
+              </div>
+            </div>
+
+            <p class="text-[11px] text-slate-400 mt-1.5 leading-snug">
+              Random wait time before clicking the Retry (↻) button on a failed card (e.g., "Flow is experiencing high demand").
+            </p>
+          </div>
+
+          <!-- Card Retry Clicks Before Refresh / Server Switch -->
+          <div class="mt-3.5 pt-3.5 border-t border-white/[0.06]">
+            <div class="flex items-center justify-between gap-2 mb-2">
+              <div class="text-[12px] font-semibold text-slate-200">
+                Card Retry Clicks Before Refresh / Server Switch
+              </div>
+              <div class="segmented-track" role="group" aria-label="Card Retry Clicks Preset">
+                <button
+                  type="button"
+                  data-cardretry-clicks-min="5"
+                  data-cardretry-clicks-max="8"
+                  class="delay-preset-btn cardretry-clicks-preset-btn"
+                >
+                  5 – 8 Clicks
+                </button>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label for="settingCardRetryClicksMin" class="modal-field-label">
+                  Min Clicks <span class="modal-field-code">cardRetryClicksMin</span>
+                </label>
+                <input
+                  id="settingCardRetryClicksMin"
+                  type="number"
+                  min="1"
+                  max="15"
+                  step="1"
+                  class="studio-input w-full px-3 py-2 font-studio-mono tabular-nums text-[11.5px]"
+                  placeholder="5"
+                />
+              </div>
+
+              <div>
+                <label for="settingCardRetryClicksMax" class="modal-field-label">
+                  Max Clicks <span class="modal-field-code">cardRetryClicksMax</span>
+                </label>
+                <input
+                  id="settingCardRetryClicksMax"
+                  type="number"
+                  min="1"
+                  max="15"
+                  step="1"
+                  class="studio-input w-full px-3 py-2 font-studio-mono tabular-nums text-[11.5px]"
+                  placeholder="8"
+                />
+              </div>
+            </div>
+
+            <p class="text-[11px] text-slate-400 mt-1.5 leading-snug">
+              Clicks the card Retry (↻) button 5–8 random times before refreshing Chrome, and another 5–8 times after refresh.
+            </p>
+          </div>
+
+          <!-- Google Flow Controls: Agent Mode (OFF / ON) & View Mode (Grid / Batch) -->
+          <div class="mt-3.5 pt-3.5 border-t border-white/[0.06] space-y-3">
+            <div class="text-[12px] font-semibold text-indigo-300 flex items-center gap-1.5">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <rect width="7" height="7" x="3" y="3" rx="1" />
+                <rect width="7" height="7" x="14" y="3" rx="1" />
+                <rect width="7" height="7" x="14" y="14" rx="1" />
+                <rect width="7" height="7" x="3" y="14" rx="1" />
+              </svg>
+              <span>Google Flow Controls (Agent Mode &amp; View Mode)</span>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <!-- Control 1: Google Flow Agent Mode (OFF / Force OFF / Force ON) -->
+              <div>
+                <label for="settingFlowAgentMode" class="modal-field-label">
+                  Google Flow Agent Mode <span class="modal-field-code">flowAgentMode</span>
+                </label>
+                <select
+                  id="settingFlowAgentMode"
+                  class="studio-select w-full px-3 py-2 font-studio-mono text-[11.5px]"
+                >
+                  <option value="off" selected>OFF — Disabled (Do Not Touch Flow Agent Toggle) (Default)</option>
+                  <option value="force-off">Force OFF — Auto Turn OFF Flow Agent</option>
+                  <option value="force-on">Force ON — Auto Turn ON Flow Agent</option>
+                </select>
+                <p class="text-[11px] text-slate-400 mt-1.5 leading-snug">
+                  When set to OFF, the bot will NEVER touch or click Google Flow's ✦ Flow agent toggle. Choose Force OFF or Force ON only if you want the bot to control it automatically.
+                </p>
+              </div>
+
+              <!-- Control 2: Google Flow View Mode (OFF / Grid / Batch) -->
+              <div>
+                <label for="settingFlowViewMode" class="modal-field-label">
+                  Google Flow View Mode <span class="modal-field-code">flowViewMode</span>
+                </label>
+                <select
+                  id="settingFlowViewMode"
+                  class="studio-select w-full px-3 py-2 font-studio-mono text-[11.5px]"
+                >
+                  <option value="off" selected>OFF — Disabled (Do Not Touch Google Flow Settings) (Default)</option>
+                  <option value="grid">Grid — Auto Switch to Grid View</option>
+                  <option value="batch">Batch — Auto Switch to Batch View</option>
+                </select>
+                <p class="text-[11px] text-slate-400 mt-1.5 leading-snug">
+                  When set to OFF, the bot will NEVER open or touch Google Flow's top navbar Settings (⚙️). Select Grid or Batch only if you want automatic view switching.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Auto-Start Bot After Launch Chrome Checkbox -->
+          <div class="mt-3.5 pt-3.5 border-t border-white/[0.06]">
+            <label class="studio-switch studio-switch-lg flex items-center justify-between gap-4 w-full">
+              <div class="min-w-0">
+                <div class="text-[12px] font-semibold text-slate-200">
+                  Auto-Start Bot after Launch Chrome
+                </div>
+                <div class="text-[11px] text-slate-400 mt-0.5 leading-snug">
+                  Automatically starts generating pending prompts as soon as Launch Chrome opens Google Flow, creates a New Project, and connects.
+                </div>
+              </div>
+              <input id="settingAutoStartAfterLaunch" type="checkbox" checked />
+              <span class="studio-switch-track"></span>
+            </label>
+          </div>
+
+          <!-- Auto Server Switch Checkbox -->
+          <div class="mt-3.5 pt-3.5 border-t border-white/[0.06]">
+            <label class="studio-switch studio-switch-lg flex items-center justify-between gap-4 w-full">
+              <div class="min-w-0">
+                <div class="text-[12px] font-semibold text-slate-200">
+                  Auto-switch ZeeFlow server (Server 1 → 2 → 3) if error persists after Chrome refresh
+                </div>
+                <div class="text-[11px] text-slate-400 mt-0.5 leading-snug">
+                  Automatically opens ZeeFlow, switches to the next Google Flow server, loads server data, and reopens your active Flow project when Stage 1 &amp; Stage 2 retries are exhausted.
+                </div>
+              </div>
+              <input id="settingAutoSwitchServer" type="checkbox" checked />
+              <span class="studio-switch-track"></span>
+            </label>
+          </div>
+
+          <!-- Sleek Custom Linear / iOS Toggle Switch -->
+          <div class="mt-3.5 pt-3.5 border-t border-white/[0.06]">
+            <label class="studio-switch studio-switch-lg flex items-center justify-between gap-4 w-full">
+              <div class="min-w-0">
+                <div class="text-[12px] font-semibold text-slate-200">
+                  Auto-Reload Chrome &amp; Persistent Infinite Retry
+                </div>
+                <div class="text-[11px] text-slate-400 mt-0.5 leading-snug">
+                  Automatically reloads Chrome on any Google Flow error, waits for the UI to recover, re-pastes the prompt, and retries until the video succeeds.
+                </div>
+              </div>
+              <input id="cfgInfiniteRefreshOnError" type="checkbox" checked />
+              <span class="studio-switch-track"></span>
+            </label>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="px-6 py-3.5 bg-[#0b0e14] border-t border-white/[0.075] flex items-center justify-between shrink-0">
+        <button
+          id="btnResetSettings"
+          type="button"
+          class="btn btn-amber-ghost"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+            <path d="M3 3v5h5" />
+          </svg>
+          <span>Reset to Defaults</span>
+        </button>
+
+        <div class="flex items-center gap-2">
+          <button
+            id="btnCloseSettings"
+            type="button"
+            class="btn btn-ghost"
+          >
+            Cancel
+          </button>
+          <button
+            id="btnSaveSettings"
+            type="button"
+            class="btn btn-primary"
+          >
+            Save Settings
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- CHATGPT AUTO 13-PHASE PROMPT GENERATOR MODAL                          -->
+  <!-- ===================================================================== -->
+  <div
+    id="chatgptModal"
+    class="modal-backdrop fixed inset-0 z-50 hidden items-center justify-center p-4"
+  >
+    <div class="modal-card w-full max-w-2xl overflow-hidden flex flex-col max-h-[92vh]">
+      <!-- Modal Header -->
+      <div class="px-6 py-4 border-b border-white/[0.075] flex items-center justify-between shrink-0">
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-lg bg-emerald-500/15 border border-emerald-500/35 flex items-center justify-center text-emerald-400">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 3l1.912 5.813a2 2 0 0 0 1.275 1.275L21 12l-5.813 1.912a2 2 0 0 0-1.275 1.275L12 21l-1.912-5.813a2 2 0 0 0-1.275-1.275L3 12l5.813-1.912a2 2 0 0 0 1.275-1.275L12 3Z" />
+            </svg>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h3 class="text-[15px] font-bold text-white tracking-tight">ChatGPT Auto — 13-Phase Prompt Pipeline</h3>
+              <span
+                id="chatgptTargetTotalBadge"
+                class="px-2 py-0.5 rounded-full text-[10.5px] font-studio-mono tabular-nums font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
+              >
+                Target: 140 prompts
+              </span>
+            </div>
+            <p class="text-[11.5px] text-slate-400">
+              Opens ChatGPT in a new Debug Chrome tab, runs all phases automatically, queues every prompt 1-by-1, and starts Flow Bot.
+            </p>
+          </div>
+        </div>
+        <button
+          id="btnCloseChatgptTop"
+          type="button"
+          class="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/[0.06] transition"
+          title="Close ChatGPT Auto Modal"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" x2="6" y1="6" y2="18" />
+            <line x1="6" x2="18" y1="6" y2="18" />
+          </svg>
+        </button>
+      </div>
+
+      <!-- Modal Form Body -->
+      <div class="p-5 flex-1 min-h-0 overflow-y-auto space-y-4 text-xs">
+
+        <!-- Section 1: Master Prompt (Auto-Saved) -->
+        <div class="modal-section-card">
+          <div class="flex items-center justify-between mb-1.5">
+            <label for="chatgptMasterPrompt" class="modal-field-label mb-0">
+              Master Prompt <span class="modal-field-code">auto-saved locally</span>
+            </label>
+            <span id="chatgptSavedIndicator" class="text-[10.5px] font-studio-mono text-emerald-400/80">Saved</span>
+          </div>
+          <textarea
+            id="chatgptMasterPrompt"
+            class="studio-input chatgpt-textarea-master w-full"
+            placeholder="Paste your 13-phase Master Prompt instructions here (saved automatically so you only paste it once)..."
+          ></textarea>
+        </div>
+
+        <!-- Section 2: Topic / Message -->
+        <div class="modal-section-card">
+          <label for="chatgptTopicMessage" class="modal-field-label">
+            Topic / Message <span class="modal-field-code">appended on Turn 1</span>
+          </label>
+          <textarea
+            id="chatgptTopicMessage"
+            class="studio-input chatgpt-textarea-topic w-full"
+            placeholder="Enter the specific video topic, script subject, or message for this run (e.g., How $100 Banknotes Are Made)..."
+          ></textarea>
+        </div>
+
+        <!-- Section 3: Phase Schedule & Auto-Continue -->
+        <div class="modal-section-card space-y-3">
+          <div class="modal-section-title">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+            </svg>
+            <span>Phase Schedule &amp; Automation</span>
+          </div>
+
+          <div class="grid grid-cols-3 gap-3">
+            <div>
+              <label for="chatgptTotalPhases" class="modal-field-label">Total Phases</label>
+              <input
+                id="chatgptTotalPhases"
+                type="number"
+                min="1"
+                max="30"
+                value="13"
+                class="studio-input w-full px-3 py-2 font-studio-mono tabular-nums text-[11.5px]"
+              />
+            </div>
+
+            <div>
+              <label for="chatgptPromptsPerPhase" class="modal-field-label">Prompts / Phase</label>
+              <input
+                id="chatgptPromptsPerPhase"
+                type="number"
+                min="1"
+                max="50"
+                value="10"
+                class="studio-input w-full px-3 py-2 font-studio-mono tabular-nums text-[11.5px]"
+              />
+            </div>
+
+            <div>
+              <label for="chatgptPhase6Prompts" class="modal-field-label">Phase 6 Prompts</label>
+              <input
+                id="chatgptPhase6Prompts"
+                type="number"
+                min="1"
+                max="50"
+                value="20"
+                class="studio-input w-full px-3 py-2 font-studio-mono tabular-nums text-[11.5px]"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label for="chatgptContinueTemplate" class="modal-field-label">
+              Auto-Continue Prompt Template <span class="modal-field-code">{phase}, {count}</span>
+            </label>
+            <input
+              id="chatgptContinueTemplate"
+              type="text"
+              value="Continue to Phase {phase} and generate all {count} prompts in the exact same format."
+              class="studio-input w-full px-3 py-2 font-studio-mono text-[11.5px]"
+            />
+          </div>
+
+          <div class="pt-2.5 border-t border-white/[0.06] space-y-3">
+            <label class="studio-switch studio-switch-lg flex items-center justify-between gap-4 w-full">
+              <div class="min-w-0">
+                <div class="text-[12px] font-semibold text-slate-200">
+                  Auto-click "Start Bot" after all prompts are queued
+                </div>
+                <div class="text-[11px] text-slate-400 mt-0.5 leading-snug">
+                  Switches focus back to the Google Flow tab and starts video generation once every extracted prompt is added to the queue.
+                </div>
+              </div>
+              <input id="chatgptAutoStartBot" type="checkbox" checked />
+              <span class="studio-switch-track"></span>
+            </label>
+
+            <label class="studio-switch studio-switch-lg flex items-center justify-between gap-4 w-full pt-2.5 border-t border-white/[0.05]">
+              <div class="min-w-0">
+                <div class="text-[12px] font-semibold text-slate-200">
+                  Auto-scroll ChatGPT page while generating
+                </div>
+                <div class="text-[11px] text-slate-400 mt-0.5 leading-snug">
+                  Smoothly scrolls ChatGPT's conversation thread to the bottom while thinking, streaming, and advancing across phases.
+                </div>
+              </div>
+              <input id="chatgptAutoScroll" type="checkbox" checked />
+              <span class="studio-switch-track"></span>
+            </label>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="px-6 py-3.5 bg-[#0b0e14] border-t border-white/[0.075] flex items-center justify-between shrink-0">
+        <button
+          id="btnStopChatgptModal"
+          type="button"
+          disabled
+          class="btn btn-exec-stop px-3.5 py-2 rounded-lg text-xs font-semibold"
+        >
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+            <rect width="14" height="14" x="5" y="5" rx="2.5" />
+          </svg>
+          <span>Stop</span>
+        </button>
+
+        <div class="flex items-center gap-2">
+          <button
+            id="btnCloseChatgptModal"
+            type="button"
+            class="btn btn-ghost"
+          >
+            Close
+          </button>
+          <button
+            id="btnStartChatgptAuto"
+            type="button"
+            class="btn btn-exec-start px-4 py-2 rounded-lg text-xs font-bold"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 3l1.912 5.813a2 2 0 0 0 1.275 1.275L21 12l-5.813 1.912a2 2 0 0 0-1.275 1.275L12 21l-1.912-5.813a2 2 0 0 0-1.275-1.275L3 12l5.813-1.912a2 2 0 0 0 1.275-1.275L12 3Z" />
+            </svg>
+            <span>Start ChatGPT Auto</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- PHONE REMOTE (MOBILE PWA Wi-Fi & TAILSCALE 4G/5G CONTROL) MODAL       -->
+  <!-- ===================================================================== -->
+  <div
+    id="phoneRemoteModal"
+    class="modal-backdrop fixed inset-0 z-50 hidden items-center justify-center p-4"
+  >
+    <div class="modal-card w-full max-w-xl overflow-hidden flex flex-col max-h-[92vh]">
+      <!-- Modal Header -->
+      <div class="px-6 py-4 border-b border-white/[0.075] flex items-center justify-between shrink-0">
+        <div class="flex items-center gap-3">
+          <div class="w-8 h-8 rounded-lg bg-indigo-500/15 border border-indigo-500/35 flex items-center justify-center text-indigo-400">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+              <rect width="14" height="20" x="5" y="2" rx="2" ry="2" />
+              <path d="M12 18h.01" />
+            </svg>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h3 class="text-[15px] font-bold text-white tracking-tight">📱 Phone Remote — Mobile PWA Control</h3>
+              <span
+                id="remoteStatusBadge"
+                class="px-2 py-0.5 rounded-full text-[10.5px] font-studio-mono tabular-nums font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
+              >
+                LIVE :3847
+              </span>
+            </div>
+            <p class="text-[11.5px] text-slate-400">
+              Monitor &amp; control all bot profiles from your phone over Home Wi-Fi or Tailscale 4G/5G.
+            </p>
+          </div>
+        </div>
+        <button
+          id="btnClosePhoneRemoteTop"
+          type="button"
+          class="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/[0.06] transition"
+          title="Close Phone Remote Modal"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" x2="6" y1="6" y2="18" />
+            <line x1="6" x2="18" y1="6" y2="18" />
+          </svg>
+        </button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="p-5 flex-1 min-h-0 overflow-y-auto space-y-4 text-xs">
+
+        <!-- 6-Digit Access PIN Card -->
+        <div class="modal-section-card">
+          <div class="flex items-center justify-between gap-3 flex-wrap">
+            <div>
+              <div class="text-[11px] font-bold uppercase tracking-wider text-indigo-300">
+                6-Digit Security Access PIN
+              </div>
+              <div class="text-[11px] text-slate-400 mt-0.5">
+                Required once on your phone to unlock remote control.
+              </div>
+            </div>
+
+            <div class="flex items-center gap-2">
+              <span
+                id="remotePinDisplay"
+                class="px-3.5 py-1.5 rounded-lg bg-[#0b0f17] border border-indigo-500/35 text-[18px] font-bold font-studio-mono tracking-[0.22em] text-white select-all"
+              >
+                ------
+              </span>
+              <button
+                id="btnCopyRemotePin"
+                type="button"
+                class="btn btn-ghost px-2.5 py-1.5 text-[11.5px]"
+                title="Copy 6-Digit PIN"
+              >
+                Copy PIN
+              </button>
+              <button
+                id="btnRegenerateRemotePin"
+                type="button"
+                class="btn btn-amber-ghost px-2.5 py-1.5 text-[11.5px]"
+                title="Generate a brand-new 6-digit PIN"
+              >
+                New PIN
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Anywhere URL (Tailscale 4G / 5G) -->
+        <div class="modal-section-card space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-[12px] font-bold text-emerald-300 flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+              <span>Anywhere URL (Tailscale 4G / 5G Mobile Data)</span>
+            </span>
+            <span id="remoteTailscaleBadge" class="text-[10.5px] font-studio-mono text-slate-400">
+              Checking Tailscale...
+            </span>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <input
+              id="remoteAnywhereUrlInput"
+              type="text"
+              readonly
+              class="studio-input flex-1 px-3 py-2 font-studio-mono text-[12px] text-emerald-300 select-all"
+              value="Install Tailscale on PC & Phone to get your 4G/5G Anywhere URL"
+            />
+            <button
+              id="btnCopyAnywhereUrl"
+              type="button"
+              class="btn btn-primary px-3 py-2 text-[11.5px] shrink-0"
+            >
+              Copy
+            </button>
+          </div>
+          <p id="remoteTailscaleHint" class="text-[11px] text-slate-400 leading-snug">
+            Works from anywhere in the world over 4G/5G when Tailscale is connected on your PC and phone.
+          </p>
+        </div>
+
+        <!-- Home Wi-Fi / LAN URL -->
+        <div class="modal-section-card space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="text-[12px] font-bold text-sky-300 flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-sky-400"></span>
+              <span>Home Wi-Fi URL (Same Local Network)</span>
+            </span>
+            <span class="text-[10.5px] font-studio-mono text-slate-400">Instant Zero-Setup</span>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <input
+              id="remoteLanUrlInput"
+              type="text"
+              readonly
+              class="studio-input flex-1 px-3 py-2 font-studio-mono text-[12px] text-sky-200 select-all"
+              value="http://192.168.1.100:3847"
+            />
+            <button
+              id="btnCopyLanUrl"
+              type="button"
+              class="btn btn-primary px-3 py-2 text-[11.5px] shrink-0"
+            >
+              Copy
+            </button>
+          </div>
+        </div>
+
+        <!-- Quick Setup Guide (3 Lines) -->
+        <div class="modal-section-card space-y-1.5">
+          <div class="text-[11.5px] font-bold text-slate-200">
+            Quick Mobile App Setup (Add to Home Screen):
+          </div>
+          <ol class="list-decimal list-inside space-y-1 text-[11.5px] text-slate-300 leading-relaxed">
+            <li>Open the <strong>Home Wi-Fi URL</strong> (or <strong>Tailscale Anywhere URL</strong>) in Chrome or Safari on your phone.</li>
+            <li>Enter the <strong>6-Digit Access PIN</strong> above to unlock your live multi-profile dashboard.</li>
+            <li>Tap your browser menu and select <strong>"Add to Home Screen"</strong> to install <strong>Flow Remote</strong> as a full-screen mobile app.</li>
+          </ol>
+        </div>
+
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="px-6 py-3.5 bg-[#0b0e14] border-t border-white/[0.075] flex items-center justify-between shrink-0">
+        <button
+          id="btnRefreshRemoteInfo"
+          type="button"
+          class="btn btn-ghost"
+        >
+          Refresh Network IPs
+        </button>
+
+        <button
+          id="btnClosePhoneRemote"
+          type="button"
+          class="btn btn-primary"
+        >
+          Done
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>

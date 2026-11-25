@@ -1,0 +1,56 @@
+{
+  "name": "google-flow-bot",
+  "version": "1.2.4",
+  "description": "Google Flow Desktop Automation Bot - Bulk AI Video Generation & Auto-Downloader via Chrome DevTools Protocol",
+  "main": "main.js",
+  "author": "Google Flow Bot Team",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win --x64",
+    "release": "electron-builder --win --publish always"
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.11",
+    "puppeteer-core": "^23.6.0"
+  },
+  "devDependencies": {
+    "electron": "^32.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.googleflow.automationbot",
+    "productName": "Google Flow Automation Bot",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "src/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "signAndEditExecutable": false,
+      "verifyUpdateCodeSignature": false
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "abdulrafaydev1",
+        "repo": "Google-flow-bot-updates",
+        "releaseType": "release"
+      }
+    ],
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Google Flow Automation Bot"
+    }
+  }
+}

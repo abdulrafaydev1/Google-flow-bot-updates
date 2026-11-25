@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b0f17" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Flow Remote" />
+  <title>Flow Studio — Mobile Remote</title>
+  <link rel="manifest" href="/manifest.json" />
+  <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+  <link rel="apple-touch-icon" href="/icon.svg" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+
+  <!-- ===================================================================== -->
+  <!-- PIN UNLOCK OVERLAY SCREEN                                             -->
+  <!-- ===================================================================== -->
+  <div id="pinScreen" class="pin-screen">
+    <div class="pin-card">
+      <div class="pin-brand-icon">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+          <path d="m22 8-6 4 6 4V8Z" />
+          <rect width="14" height="12" x="2" y="6" rx="2" ry="2" />
+        </svg>
+      </div>
+      <div class="pin-title-row">
+        <h1 class="pin-title">Flow Studio</h1>
+        <span class="pro-pill">REMOTE</span>
+      </div>
+      <p class="pin-subtitle">
+        Enter the 6-digit Access PIN shown in your desktop app under <strong>📱 Phone Remote</strong>.
+      </p>
+
+      <form id="pinForm" class="pin-form" autocomplete="off">
+        <input
+          id="pinInput"
+          type="password"
+          inputmode="numeric"
+          pattern="[0-9]*"
+          maxlength="12"
+          placeholder="••••••"
+          class="pin-input"
+          required
+        />
+        <div id="pinErrorMsg" class="pin-error hidden">Invalid PIN. Please try again.</div>
+        <button id="btnUnlockPin" type="submit" class="btn-primary-gradient btn-lg w-full">
+          <span>Unlock Remote Control</span>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- MAIN MOBILE APP SHELL                                                 -->
+  <!-- ===================================================================== -->
+  <div id="appShell" class="app-shell hidden">
+
+    <!-- Sticky Top Header + Profile Switcher -->
+    <header class="top-bar">
+      <div class="top-bar-main">
+        <div class="top-brand">
+          <div class="brand-logo-sm">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m22 8-6 4 6 4V8Z" />
+              <rect width="14" height="12" x="2" y="6" rx="2" ry="2" />
+            </svg>
+          </div>
+          <span class="brand-name">Flow Remote</span>
+          <span id="liveNetBadge" class="net-badge net-live">
+            <span id="liveNetDot" class="net-dot"></span>
+            <span id="liveNetText">Live</span>
+          </span>
+        </div>
+
+        <div class="top-actions">
+          <button
+            id="btnToggleAlerts"
+            type="button"
+            class="icon-btn alert-active"
+            title="Toggle Audio &amp; Vibration Alerts"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+              <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
+            </svg>
+          </button>
+          <button
+            id="btnLogoutPin"
+            type="button"
+            class="icon-btn"
+            title="Lock / Change PIN"
+          >
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+              <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Horizontal Profile Switcher Pills -->
+      <div class="profile-bar-wrap">
+        <div id="profilePillsContainer" class="profile-pills"></div>
+        <button id="btnSpawnWindow" type="button" class="profile-add-btn" title="Open a new bot window on PC">
+          + Window
+        </button>
+      </div>
+    </header>
+
+    <!-- Toast Notification Banner -->
+    <div id="toastBanner" class="toast-banner hidden"></div>
+
+    <!-- Scrollable Tab Viewport -->
+    <main class="tab-viewport">
+
+      <!-- ================================================================= -->
+      <!-- TAB 1: CONTROL                                                    -->
+      <!-- ================================================================= -->
+      <section id="tab-control" class="tab-pane active">
+        <!-- Hero Status Card -->
+        <div class="card hero-card">
+          <div class="hero-top-row">
+            <div>
+              <div class="hero-profile-label" id="heroProfileTitle">Profile 1 &bull; Port 9222</div>
+              <div class="hero-conn-row">
+                <span id="heroConnDot" class="conn-dot conn-off"></span>
+                <span id="heroConnText" class="hero-conn-text">Disconnected</span>
+              </div>
+            </div>
+            <span id="heroStateBadge" class="state-badge state-idle">IDLE</span>
+          </div>
+
+          <div class="hero-progress-wrap">
+            <div class="hero-progress-labels">
+              <span id="heroProgressLabel">Progress: 0 / 0 completed</span>
+              <span id="heroProgressPct" class="mono-num">0%</span>
+            </div>
+            <div class="progress-track">
+              <div id="heroProgressFill" class="progress-fill" style="width: 0%"></div>
+            </div>
+          </div>
+
+          <div class="hero-meta-row">
+            <span id="heroVppLabel" class="meta-chip">Videos/Prompt: 1</span>
+            <span id="heroOutputLabel" class="meta-chip truncate">Downloads\GoogleFlowVideos</span>
+          </div>
+        </div>
+
+        <!-- 4 Big Stat Tiles -->
+        <div class="stats-grid">
+          <div class="stat-tile stat-pending">
+            <span class="stat-label">PENDING</span>
+            <span id="tilePending" class="stat-value">0</span>
+          </div>
+          <div class="stat-tile stat-generating">
+            <span class="stat-label">GENERATING</span>
+            <span id="tileGenerating" class="stat-value">0</span>
+          </div>
+          <div class="stat-tile stat-completed">
+            <span class="stat-label">COMPLETED</span>
+            <span id="tileCompleted" class="stat-value">0</span>
+          </div>
+          <div class="stat-tile stat-failed">
+            <span class="stat-label">FAILED</span>
+            <span id="tileFailed" class="stat-value">0</span>
+          </div>
+        </div>
+
+        <!-- Primary Launch Chrome Button -->
+        <div class="card actions-card">
+          <button id="btnRemoteLaunchChrome" type="button" class="btn-launch-hero">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+            </svg>
+            <span>Launch Chrome (Auto Setup &amp; Start)</span>
+          </button>
+
+          <!-- Bot Execution Grid -->
+          <div class="control-buttons-grid">
+            <button id="btnRemoteStart" type="button" class="ctrl-btn ctrl-start">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <polygon points="6 4 20 12 6 20 6 4" />
+              </svg>
+              <span>Start Bot</span>
+            </button>
+
+            <button id="btnRemotePause" type="button" class="ctrl-btn ctrl-pause">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <rect x="6" y="4" width="4" height="16" rx="1" />
+                <rect x="14" y="4" width="4" height="16" rx="1" />
+              </svg>
+              <span>Pause</span>
+            </button>
+
+            <button id="btnRemoteResume" type="button" class="ctrl-btn ctrl-resume">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <polygon points="6 4 20 12 6 20 6 4" />
+              </svg>
+              <span>Resume</span>
+            </button>
+
+            <button id="btnRemoteStop" type="button" class="ctrl-btn ctrl-stop">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <rect x="5" y="5" width="14" height="14" rx="2" />
+              </svg>
+              <span>Stop</span>
+            </button>
+          </div>
+
+          <!-- Secondary Actions: Connect & ChatGPT Auto -->
+          <div class="secondary-actions-row">
+            <button id="btnRemoteConnect" type="button" class="sec-btn">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+              </svg>
+              <span>Connect Tab</span>
+            </button>
+
+            <button id="btnRemoteChatgptToggle" type="button" class="sec-btn sec-btn-emerald">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 3l1.912 5.813a2 2 0 0 0 1.275 1.275L21 12l-5.813 1.912a2 2 0 0 0-1.275 1.275L12 21l-1.912-5.813a2 2 0 0 0-1.275-1.275L3 12l5.813-1.912a2 2 0 0 0 1.275-1.275L12 3Z" />
+              </svg>
+              <span id="btnRemoteChatgptLabel">ChatGPT Auto</span>
+            </button>
+          </div>
+
+          <!-- Expandable ChatGPT Auto Quick Drawer -->
+          <div id="chatgptQuickDrawer" class="chatgpt-drawer hidden">
+            <label for="remoteChatgptTopic" class="drawer-label">
+              Optional Topic / Script Subject (uses saved Master Prompt on PC):
+            </label>
+            <input
+              id="remoteChatgptTopic"
+              type="text"
+              class="mobile-input"
+              placeholder="e.g. How Jet Engines Are Manufactured..."
+            />
+            <div class="drawer-actions">
+              <button id="btnRemoteChatgptStart" type="button" class="btn-emerald-sm">
+                Start 13-Phase Pipeline
+              </button>
+              <button id="btnRemoteChatgptStop" type="button" class="btn-danger-sm">
+                Stop ChatGPT
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================================================================= -->
+      <!-- TAB 2: PROMPTS                                                    -->
+      <!-- ================================================================= -->
+      <section id="tab-prompts" class="tab-pane">
+        <div class="card">
+          <div class="card-header-row">
+            <h2 class="card-title">Add Prompts to Queue</h2>
+            <select id="mobileSplitMode" class="mobile-select">
+              <option value="smart" selected>Smart Blocks</option>
+              <option value="line">1 Line = 1 Prompt</option>
+            </select>
+          </div>
+
+          <textarea
+            id="mobilePromptInput"
+            rows="4"
+            class="mobile-textarea"
+            placeholder="Paste single or multi-line prompts here (separate blocks with Prompt #, ---, or double blank lines)..."
+          ></textarea>
+
+          <button id="btnRemoteAddPrompts" type="button" class="btn-primary-gradient w-full mt-2">
+            + Add to Queue
+          </button>
+        </div>
+
+        <div class="card">
+          <div class="card-header-row">
+            <h2 class="card-title">
+              Queue Items <span id="mobileQueueCountBadge" class="count-pill">0</span>
+            </h2>
+            <div class="quick-queue-btns">
+              <button id="btnRemoteRetryFailed" type="button" class="mini-btn mini-amber">
+                Retry Failed
+              </button>
+              <button id="btnRemoteClearDone" type="button" class="mini-btn">
+                Clear Done
+              </button>
+            </div>
+          </div>
+
+          <div id="mobileQueueList" class="queue-list"></div>
+        </div>
+      </section>
+
+      <!-- ================================================================= -->
+      <!-- TAB 3: LIVE LOGS                                                  -->
+      <!-- ================================================================= -->
+      <section id="tab-logs" class="tab-pane">
+        <div class="card logs-card">
+          <div class="card-header-row">
+            <h2 class="card-title">Live Activity Log</h2>
+            <div class="quick-queue-btns">
+              <label class="auto-scroll-label">
+                <input id="chkMobileLogAutoScroll" type="checkbox" checked />
+                <span>Auto-Scroll</span>
+              </label>
+              <button id="btnRemoteRefreshLogs" type="button" class="mini-btn">
+                Refresh
+              </button>
+              <button id="btnRemoteCopyLogs" type="button" class="mini-btn">
+                Copy Logs
+              </button>
+            </div>
+          </div>
+
+          <div id="mobileLogsTerminal" class="mobile-terminal"></div>
+        </div>
+      </section>
+
+      <!-- ================================================================= -->
+      <!-- TAB 4: LIVE SCREEN                                                -->
+      <!-- ================================================================= -->
+      <section id="tab-screen" class="tab-pane">
+        <div class="card screen-card">
+          <div class="card-header-row">
+            <h2 class="card-title">Live Google Flow Screen</h2>
+            <div class="quick-queue-btns">
+              <label class="auto-scroll-label">
+                <input id="chkScreenAutoRefresh" type="checkbox" />
+                <span>Auto (5s)</span>
+              </label>
+              <button id="btnRemoteRefreshScreen" type="button" class="mini-btn mini-indigo">
+                Refresh Screen
+              </button>
+            </div>
+          </div>
+
+          <div id="screenContainer" class="screen-preview-box">
+            <div id="screenPlaceholder" class="screen-placeholder">
+              Tap "Refresh Screen" to capture the active Google Flow Chrome tab.
+            </div>
+            <img id="liveScreenshotImg" class="screen-img hidden" alt="Live Google Flow Tab Screenshot" />
+          </div>
+          <div id="screenTimestamp" class="screen-caption">Not captured yet</div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Thumb-Friendly Bottom Tab Navigation Bar -->
+    <nav class="bottom-nav">
+      <button type="button" class="nav-tab active" data-tab="tab-control">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+        </svg>
+        <span>Control</span>
+      </button>
+
+      <button type="button" class="nav-tab" data-tab="tab-prompts">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="8" x2="21" y1="6" y2="6" />
+          <line x1="8" x2="21" y1="12" y2="12" />
+          <line x1="8" x2="21" y1="18" y2="18" />
+          <line x1="3" x2="3.01" y1="6" y2="6" />
+          <line x1="3" x2="3.01" y1="12" y2="12" />
+          <line x1="3" x2="3.01" y1="18" y2="18" />
+        </svg>
+        <span>Prompts</span>
+      </button>
+
+      <button type="button" class="nav-tab" data-tab="tab-logs">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="4 17 10 11 4 5" />
+          <line x1="12" x2="20" y1="19" y2="19" />
+        </svg>
+        <span>Live Logs</span>
+      </button>
+
+      <button type="button" class="nav-tab" data-tab="tab-screen">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+          <rect width="18" height="14" x="3" y="4" rx="2" />
+          <line x1="8" x2="16" y1="20" y2="20" />
+          <line x1="12" x2="12" y1="18" y2="20" />
+        </svg>
+        <span>Live Screen</span>
+      </button>
+    </nav>
+
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
