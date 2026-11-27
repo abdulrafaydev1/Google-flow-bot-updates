@@ -1,6 +1,6 @@
 {
   "name": "google-flow-bot",
-  "version": "1.2.5",
+  "version": "1.2.6",
   "description": "Google Flow Desktop Automation Bot - Bulk AI Video Generation & Auto-Downloader via Chrome DevTools Protocol",
   "main": "main.js",
   "author": "Google Flow Bot Team",
