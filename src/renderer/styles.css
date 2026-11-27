@@ -945,6 +945,162 @@ button:disabled {
 }
 
 /* ============================================================================
+   MISSION CONTROL TIME & COMPLETION ETA TELEMETRY BAR
+   ============================================================================ */
+.mission-time-telemetry {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  background: rgba(15, 23, 42, 0.65);
+  border: 1px solid rgba(99, 102, 241, 0.22);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-top: 4px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+}
+
+.telemetry-col {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding-right: 6px;
+  border-right: 1px solid rgba(255, 255, 255, 0.055);
+}
+
+.telemetry-col:last-child {
+  padding-right: 0;
+  border-right: none;
+}
+
+.telemetry-col-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+  margin-bottom: 3px;
+}
+
+.telemetry-label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: #94a3b8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.timer-state-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 6px;
+  border-radius: 9999px;
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  flex-shrink: 0;
+  border: 1px solid transparent;
+}
+
+.timer-state-badge.is-ready {
+  color: #94a3b8;
+  background: rgba(148, 163, 184, 0.1);
+  border-color: rgba(148, 163, 184, 0.22);
+}
+
+.timer-state-badge.is-live {
+  color: #6ee7b7;
+  background: rgba(16, 185, 129, 0.14);
+  border-color: rgba(16, 185, 129, 0.38);
+  box-shadow: 0 0 10px rgba(16, 185, 129, 0.18);
+  animation: pulseBadgeGlow 1.8s infinite ease-in-out;
+}
+
+.timer-state-badge.is-paused {
+  color: #fcd34d;
+  background: rgba(245, 158, 11, 0.14);
+  border-color: rgba(245, 158, 11, 0.36);
+}
+
+.timer-state-badge.is-done {
+  color: #a5b4fc;
+  background: rgba(99, 102, 241, 0.16);
+  border-color: rgba(129, 140, 248, 0.38);
+}
+
+@keyframes pulseBadgeGlow {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.72;
+  }
+}
+
+.telemetry-value {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 14.5px;
+  font-weight: 700;
+  line-height: 1.25;
+  color: #f8fafc;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.telemetry-value-elapsed {
+  color: #f8fafc;
+}
+
+.timer-elapsed-ms {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #38bdf8;
+  opacity: 0.88;
+}
+
+.telemetry-value-eta {
+  color: #a5b4fc;
+}
+
+.telemetry-value-pace {
+  color: #34d399;
+}
+
+.telemetry-sub {
+  margin-top: 2px;
+  font-size: 10px;
+  line-height: 1.25;
+  color: #64748b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 360px) {
+  .mission-time-telemetry {
+    grid-template-columns: 1fr;
+  }
+  .telemetry-col {
+    padding-right: 0;
+    padding-bottom: 6px;
+    border-right: none;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.055);
+  }
+  .telemetry-col:last-child {
+    padding-bottom: 0;
+    border-bottom: none;
+  }
+}
+
+/* ============================================================================
    PROMPT QUEUE TABLE & COMPACT 2-LINE EXPANDABLE ROWS
    ============================================================================ */
 .queue-table-head {

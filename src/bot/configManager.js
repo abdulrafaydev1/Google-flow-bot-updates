@@ -49,6 +49,23 @@ function sanitizeFlowViewMode(rawViewMode) {
   return 'off';
 }
 
+function sanitizeDownloadQuality(rawQuality) {
+  const normalized = String(rawQuality || '720p').trim().toLowerCase();
+  if (normalized === '720p' || normalized === '780p' || normalized === 'original') {
+    return '720p';
+  }
+  if (normalized === '1080p') {
+    return '1080p';
+  }
+  if (normalized === '2k' || normalized === '1440p') {
+    return '2k';
+  }
+  if (normalized === '4k' || normalized === '2160p') {
+    return '4k';
+  }
+  return '720p';
+}
+
 const DEFAULT_CONFIG = {
   targetUrlKeyword: 'flow.google.com, labs.google',
   flowDefaultUrl: 'https://labs.google/fx/tools/flow',
@@ -81,6 +98,7 @@ const DEFAULT_CONFIG = {
   autoStartAfterLaunch: true,
   flowAgentMode: 'off',
   flowViewMode: 'off',
+  downloadQuality: '720p',
   remoteControlEnabled: true,
   remoteControlPort: 3847,
   remoteControlPin: generateRandomPin()
@@ -303,6 +321,12 @@ class ConfigManager {
         const cleanFlowViewMode = sanitizeFlowViewMode(this.config.flowViewMode);
         if (this.config.flowViewMode !== cleanFlowViewMode) {
           this.config.flowViewMode = cleanFlowViewMode;
+          needsSave = true;
+        }
+
+        const cleanDownloadQuality = sanitizeDownloadQuality(this.config.downloadQuality);
+        if (this.config.downloadQuality !== cleanDownloadQuality) {
+          this.config.downloadQuality = cleanDownloadQuality;
           needsSave = true;
         }
 
@@ -556,6 +580,10 @@ class ConfigManager {
 
     if (sanitized.flowViewMode !== undefined) {
       sanitized.flowViewMode = sanitizeFlowViewMode(sanitized.flowViewMode);
+    }
+
+    if (sanitized.downloadQuality !== undefined) {
+      sanitized.downloadQuality = sanitizeDownloadQuality(sanitized.downloadQuality);
     }
 
     this.config = {

@@ -5443,6 +5443,19 @@ class FlowController extends EventEmitter {
       }
 
       // 6B. Extract Candidate Video URL STRICTLY from Top-Left Card (#0) ONLY
+      const liveCfgForDl = this._getLiveConfig();
+      const rawConfiguredQuality = String(
+        liveCfgForDl?.downloadQuality ||
+          this.config?.downloadQuality ||
+          config?.downloadQuality ||
+          '720p'
+      )
+        .trim()
+        .toLowerCase();
+      const targetDownloadQuality = ['720p', '1080p', '2k', '4k'].includes(rawConfiguredQuality)
+        ? rawConfiguredQuality
+        : '720p';
+
       let candidateUrl = isFreshCandidateUrl(topCard.videoUrl) ? topCard.videoUrl : null;
 
       // Tier 2: Auto-hover strictly over Card #0 (topCard.centerX, topCard.centerY)
@@ -5490,7 +5503,8 @@ class FlowController extends EventEmitter {
         }
 
         // Tier 3: Click strictly on Card #0 to open its preview modal if hover did not expose <video src>
-        if (!candidateUrl) {
+        // (Skipped when targetDownloadQuality !== '720p' so Method 3 opens the detail view once and selects 1080p/2K/4K directly)
+        if (!candidateUrl && targetDownloadQuality === '720p') {
           const beforeClickTime = Date.now();
           this.log(`Opening top-left card (#0) preview to extract video stream...`);
           await this.page.mouse.click(topCard.centerX, topCard.centerY);
@@ -5816,6 +5830,61 @@ class FlowController extends EventEmitter {
     const rawVideoUrl = generationResult.url || '';
     const cleanUrl = this._stripRangeQueryParam(rawVideoUrl);
 
+    const liveCfg = this._getLiveConfig();
+    const rawTargetQuality = String(
+      liveCfg?.downloadQuality ||
+        this.config?.downloadQuality ||
+        config?.downloadQuality ||
+        '720p'
+    )
+      .trim()
+      .toLowerCase();
+    const targetQuality = ['720p', '1080p', '2k', '4k'].includes(rawTargetQuality)
+      ? rawTargetQuality
+      : '720p';
+
+    const runMethod3NativeDownload = async () => {
+      try {
+        const downloadedStagedFile = await this._downloadViaNativeChromeButton(
+          downloadDir,
+          config,
+          generationResult.topCard || null
+        );
+        if (downloadedStagedFile && fs.existsSync(downloadedStagedFile)) {
+          fs.copyFileSync(downloadedStagedFile, tempPath);
+          const resultC = verifyAndCommitTempFile(
+            rawVideoUrl,
+            `Method 3 (Native Chrome Download — ${targetQuality.toUpperCase()})`
+          );
+          try {
+            fs.unlinkSync(downloadedStagedFile);
+          } catch (_) {}
+          if (resultC.success || resultC.duplicate) {
+            return resultC;
+          }
+        } else {
+          const timeoutLabel = targetQuality !== '720p' ? '150s' : '45s';
+          this.log(
+            `Method 3 (Native Chrome Download) did not capture a downloaded file within ${timeoutLabel}.`,
+            'warn'
+          );
+        }
+      } catch (errC) {
+        cleanupTemp();
+        this.log(`Method 3 (Native Chrome Download) error: ${errC.message}`, 'warn');
+      }
+      return null;
+    };
+
+    // When an upscaled resolution (1080p / 2K / 4K) is selected, run Method 3 FIRST so Google Flow's
+    // download quality menu is used (the inline card preview stream is only 720p).
+    if (targetQuality !== '720p') {
+      const upscaledResult = await runMethod3NativeDownload();
+      if (upscaledResult && (upscaledResult.success || upscaledResult.duplicate)) {
+        return upscaledResult;
+      }
+    }
+
     // -------------------------------------------------------------------------
     // METHOD A: Full Un-Ranged Node HTTPS Stream with Chrome CDP Cookies & Redirect Following
     // -------------------------------------------------------------------------
@@ -5881,41 +5950,24 @@ class FlowController extends EventEmitter {
           this.log(
             `Method B (Browser Fetch) failed: ${
               (fetchResult && fetchResult.error) || 'Empty response'
-            }. Falling back to Method C...`,
+            }. Falling back to Method 3...`,
             'warn'
           );
         }
       } catch (errB) {
         cleanupTemp();
-        this.log(`Method B (Browser Fetch) error: ${errB.message}. Falling back to Method C...`, 'warn');
+        this.log(`Method B (Browser Fetch) error: ${errB.message}. Falling back to Method 3...`, 'warn');
       }
     }
 
     // -------------------------------------------------------------------------
-    // METHOD C: Native Chrome Download Button Fallback (100% Guaranteed Playable Export)
+    // METHOD 3 (METHOD C): Native Chrome Download Button + Quality Menu Selection
     // -------------------------------------------------------------------------
-    try {
-      this.log(`Method C: Using Google Flow native Chrome Download button fallback on Card #0...`);
-      const downloadedStagedFile = await this._downloadViaNativeChromeButton(
-        downloadDir,
-        config,
-        generationResult.topCard || null
-      );
-      if (downloadedStagedFile && fs.existsSync(downloadedStagedFile)) {
-        fs.copyFileSync(downloadedStagedFile, tempPath);
-        const resultC = verifyAndCommitTempFile(rawVideoUrl, 'Method C (Native Chrome Download)');
-        try {
-          fs.unlinkSync(downloadedStagedFile);
-        } catch (_) {}
-        if (resultC.success || resultC.duplicate) {
-          return resultC;
-        }
-      } else {
-        this.log(`Method C (Native Chrome Download) did not capture a downloaded file within 45s.`, 'warn');
+    if (targetQuality === '720p') {
+      const method3Result = await runMethod3NativeDownload();
+      if (method3Result && (method3Result.success || method3Result.duplicate)) {
+        return method3Result;
       }
-    } catch (errC) {
-      cleanupTemp();
-      this.log(`Method C (Native Chrome Download) error: ${errC.message}`, 'warn');
     }
 
     cleanupTemp();
@@ -6020,11 +6072,28 @@ class FlowController extends EventEmitter {
   }
 
   /**
-   * Method C worker: Configures CDP downloads into `<outputDir>/.bot_tmp_dl`,
-   * reveals and clicks Google Flow's native Download button on Card #0 (hover or preview modal),
-   * waits up to 45s for the completed non-.crdownload file, and restores CDP download behavior.
+   * Method 3 (Method C) worker: Configures CDP downloads into `<outputDir>/.bot_tmp_dl`,
+   * clicks the completed video card (#0) to open the detail view, clicks the top toolbar Download button,
+   * selects the configured resolution ('720p', '1080p', '2k', or '4k') from Google Flow's download quality menu,
+   * waits up to 150s (for upscaled 1080p/2K/4K) or 45s (for 720p) polling every 500ms for the completed .mp4 file,
+   * and cleanly closes the video detail view.
    */
   async _downloadViaNativeChromeButton(downloadDir, config, cachedTopCard = null) {
+    const liveCfg = this._getLiveConfig();
+    const rawQuality = String(
+      liveCfg?.downloadQuality ||
+        this.config?.downloadQuality ||
+        config?.downloadQuality ||
+        '720p'
+    )
+      .trim()
+      .toLowerCase();
+    const targetQuality = ['720p', '1080p', '2k', '4k'].includes(rawQuality)
+      ? rawQuality
+      : '720p';
+
+    this.log(`📥 Downloading video in ${targetQuality.toUpperCase()} quality (Method 3)...`);
+
     const stagingDir = path.join(downloadDir, '.bot_tmp_dl');
     const osDownloadsDir = path.join(os.homedir(), 'Downloads');
     fs.mkdirSync(stagingDir, { recursive: true });
@@ -6082,6 +6151,10 @@ class FlowController extends EventEmitter {
             return matched;
           };
 
+          for (const old of queryAllDeep(document, '[data-bot-dl-trigger]')) {
+            old.removeAttribute('data-bot-dl-trigger');
+          }
+
           const matchesDownload = (el) => {
             const aria = (el.getAttribute('aria-label') || '').toLowerCase();
             const title = (el.getAttribute('title') || '').toLowerCase();
@@ -6099,8 +6172,11 @@ class FlowController extends EventEmitter {
           };
 
           const inScope = (el) => {
-            if (!rectFilter) return true;
             const r = el.getBoundingClientRect();
+            if (!rectFilter) {
+              // Exclude bottom composer bar controls when looking for the detail view top toolbar Download button
+              return r.top < window.innerHeight - 110;
+            }
             const cx = r.left + r.width / 2;
             const cy = r.top + r.height / 2;
             return (
@@ -6111,7 +6187,7 @@ class FlowController extends EventEmitter {
             );
           };
 
-          // Prefer buttons inside an active modal/dialog overlay when not restricted to a card rect
+          // Prefer buttons inside an active modal/dialog overlay or top detail toolbar when not restricted to a card rect
           const roots = rectFilter
             ? [document]
             : [
@@ -6135,14 +6211,17 @@ class FlowController extends EventEmitter {
             ].filter((el) => isVisible(el) && inScope(el));
 
             if (direct.length > 0) {
-              const r = direct[0].getBoundingClientRect();
+              direct.sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top);
+              const chosen = direct[0];
+              chosen.setAttribute('data-bot-dl-trigger', 'true');
+              const r = chosen.getBoundingClientRect();
               return {
                 found: true,
                 x: Math.round(r.left + r.width / 2),
                 y: Math.round(r.top + r.height / 2),
                 label:
-                  direct[0].getAttribute('aria-label') ||
-                  (direct[0].innerText || '').trim().slice(0, 40) ||
+                  chosen.getAttribute('aria-label') ||
+                  (chosen.innerText || '').trim().slice(0, 40) ||
                   'Download'
               };
             }
@@ -6151,14 +6230,17 @@ class FlowController extends EventEmitter {
               (el) => isVisible(el) && inScope(el) && matchesDownload(el)
             );
             if (allBtns.length > 0) {
-              const r = allBtns[0].getBoundingClientRect();
+              allBtns.sort((a, b) => a.getBoundingClientRect().top - b.getBoundingClientRect().top);
+              const chosen = allBtns[0];
+              chosen.setAttribute('data-bot-dl-trigger', 'true');
+              const r = chosen.getBoundingClientRect();
               return {
                 found: true,
                 x: Math.round(r.left + r.width / 2),
                 y: Math.round(r.top + r.height / 2),
                 label:
-                  allBtns[0].getAttribute('aria-label') ||
-                  (allBtns[0].innerText || '').trim().slice(0, 40) ||
+                  chosen.getAttribute('aria-label') ||
+                  (chosen.innerText || '').trim().slice(0, 40) ||
                   'Download'
               };
             }
@@ -6171,60 +6253,229 @@ class FlowController extends EventEmitter {
       );
     };
 
-    const clickQualityMenuIfOpened = async () => {
-      await this._interruptibleSleep(1200);
-      const menuChoice = await this.page.evaluate(() => {
-        const isVisible = (el) => {
-          if (!el) return false;
-          const style = window.getComputedStyle(el);
-          if (style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity) === 0) {
-            return false;
+    const inspectQualityPopover = async (desiredQuality) => {
+      return this.page
+        .evaluate((targetQ) => {
+          const queryAllDeep = (root, selector) => {
+            const matched = [];
+            try {
+              root.querySelectorAll(selector).forEach((el) => matched.push(el));
+            } catch (_) {}
+            let all = [];
+            try {
+              all = root.querySelectorAll('*');
+            } catch (_) {}
+            for (const node of all) {
+              if (node.shadowRoot) {
+                matched.push(...queryAllDeep(node.shadowRoot, selector));
+              }
+            }
+            return matched;
+          };
+
+          for (const old of queryAllDeep(document, '[data-bot-dl-quality-option]')) {
+            old.removeAttribute('data-bot-dl-quality-option');
           }
-          const r = el.getBoundingClientRect();
-          return r.width > 40 && r.height > 18;
-        };
 
-        const menus = Array.from(
-          document.querySelectorAll(
-            '[role="menu"], [role="listbox"], .mat-mdc-menu-panel, [data-radix-popper-content-wrapper]'
-          )
-        ).filter(isVisible);
-
-        if (menus.length === 0) return { found: false };
-
-        const items = [];
-        for (const m of menus) {
-          m.querySelectorAll('[role="menuitem"], [role="option"], button, a, li').forEach((el) => {
-            if (!isVisible(el)) return;
-            const txt = (el.innerText || el.textContent || '').trim().toLowerCase();
-            if (!txt) return;
-            let score = 0;
-            if (txt.includes('original') || txt.includes('720p')) score += 100;
-            if (txt.includes('mp4') || txt.includes('video')) score += 50;
-            if (txt.includes('download')) score += 30;
-            if (txt.includes('gif')) score -= 80;
-            if (txt.includes('upscale') || txt.includes('1080p') || txt.includes('4k')) score -= 20;
-            if (score > 0) {
+          const isVisible = (el) => {
+            if (!el) return false;
+            try {
+              const style = window.getComputedStyle(el);
+              if (
+                style.display === 'none' ||
+                style.visibility === 'hidden' ||
+                parseFloat(style.opacity || '1') <= 0.05
+              ) {
+                return false;
+              }
               const r = el.getBoundingClientRect();
-              items.push({
-                score,
+              return (
+                r.width >= 30 &&
+                r.height >= 16 &&
+                r.right > 0 &&
+                r.bottom > 0 &&
+                r.left < window.innerWidth &&
+                r.top < window.innerHeight
+              );
+            } catch (_) {
+              return false;
+            }
+          };
+
+          const isOptionEnabled = (el) => {
+            let cur = el;
+            for (let d = 0; d < 4 && cur && cur !== document.body; d++) {
+              if (
+                cur.disabled === true ||
+                cur.hasAttribute('disabled') ||
+                cur.getAttribute('aria-disabled') === 'true' ||
+                cur.getAttribute('data-disabled') !== null
+              ) {
+                return false;
+              }
+              const st = window.getComputedStyle(cur);
+              if (st.pointerEvents === 'none' || parseFloat(st.opacity || '1') < 0.38) {
+                return false;
+              }
+              cur = cur.parentElement;
+            }
+            return true;
+          };
+
+          const resPatterns = {
+            '720p': /720p|original/i,
+            '1080p': /1080p/i,
+            '2k': /\b2k\b|1440p/i,
+            '4k': /\b4k\b|2160p/i
+          };
+
+          const getMatchedBuckets = (text) => {
+            const matched = [];
+            for (const [key, rx] of Object.entries(resPatterns)) {
+              if (rx.test(text)) matched.push(key);
+            }
+            return matched;
+          };
+
+          // 1. Locate visible quality dropdown/popover/menu containers
+          const standardMenus = queryAllDeep(
+            document,
+            '[role="menu"], [role="listbox"], [role="dialog"], [data-radix-popper-content-wrapper], .cdk-overlay-pane, .mat-mdc-menu-panel'
+          ).filter((el) => {
+            if (!isVisible(el)) return false;
+            const txt = (el.innerText || el.textContent || '').replace(/\s+/g, ' ').trim();
+            return getMatchedBuckets(txt).length >= 1;
+          });
+
+          const floatingLists = queryAllDeep(document, 'div, ul, section').filter((el) => {
+            if (!isVisible(el)) return false;
+            const r = el.getBoundingClientRect();
+            if (r.width < 60 || r.width > 540 || r.height < 40 || r.height > 560) return false;
+            const txt = (el.innerText || el.textContent || '').replace(/\s+/g, ' ').trim();
+            return getMatchedBuckets(txt).length >= 2;
+          });
+
+          const menuRoots = [...standardMenus, ...floatingLists];
+          if (menuRoots.length === 0) {
+            return { menuOpen: false };
+          }
+
+          // 2. Scan all visible clickable menu items inside the open menu/popover
+          const seenElements = new Set();
+          const optionRows = [];
+
+          for (const root of menuRoots) {
+            const candidates = queryAllDeep(
+              root,
+              '[role="menuitem"], [role="option"], [role="menuitemradio"], button, li, a, div[tabindex], div'
+            );
+            for (const rawEl of candidates) {
+              if (!isVisible(rawEl)) continue;
+              const rawTxt = (rawEl.innerText || rawEl.textContent || '')
+                .replace(/\s+/g, ' ')
+                .trim();
+              if (!rawTxt || rawTxt.length > 140) continue;
+
+              // Exclude GIF or audio-only download items
+              if (/\bgif\b|270p|audio only/i.test(rawTxt)) continue;
+
+              const buckets = getMatchedBuckets(rawTxt);
+              // Must match strictly 1 resolution bucket so we never pick a parent container wrapping multiple options
+              if (buckets.length !== 1) continue;
+              const bucket = buckets[0];
+
+              // Prefer the interactive ancestor ([role="menuitem"], [role="option"], button, li, a, [tabindex]) if it also matches strictly 1 bucket
+              let targetEl = rawEl;
+              const interactiveParent = rawEl.closest(
+                '[role="menuitem"], [role="option"], [role="menuitemradio"], button, li, a, [tabindex]'
+              );
+              if (interactiveParent && root.contains(interactiveParent) && isVisible(interactiveParent)) {
+                const parentTxt = (interactiveParent.innerText || interactiveParent.textContent || '')
+                  .replace(/\s+/g, ' ')
+                  .trim();
+                if (
+                  getMatchedBuckets(parentTxt).length === 1 &&
+                  !/\bgif\b|270p|audio only/i.test(parentTxt)
+                ) {
+                  targetEl = interactiveParent;
+                }
+              }
+
+              if (seenElements.has(targetEl)) continue;
+              seenElements.add(targetEl);
+
+              const r = targetEl.getBoundingClientRect();
+              if (r.width < 30 || r.width > 480 || r.height < 16 || r.height > 110) continue;
+
+              const label = (targetEl.innerText || targetEl.textContent || '')
+                .replace(/\s+/g, ' ')
+                .trim()
+                .slice(0, 60);
+              const isInteractiveTag = Boolean(
+                targetEl.matches(
+                  '[role="menuitem"], [role="option"], [role="menuitemradio"], button, li, a, [tabindex]'
+                )
+              );
+
+              optionRows.push({
+                el: targetEl,
+                bucket,
+                enabled: isOptionEnabled(targetEl),
+                isInteractiveTag,
+                area: r.width * r.height,
                 x: Math.round(r.left + r.width / 2),
                 y: Math.round(r.top + r.height / 2),
-                label: txt.slice(0, 40)
+                label
               });
             }
+          }
+
+          if (optionRows.length === 0) {
+            return { menuOpen: false };
+          }
+
+          // Sort so true interactive menu item tags and larger row targets come before inner text spans
+          optionRows.sort((a, b) => {
+            if (a.isInteractiveTag !== b.isInteractiveTag) {
+              return a.isInteractiveTag ? -1 : 1;
+            }
+            return b.area - a.area;
           });
-        }
 
-        if (items.length === 0) return { found: false };
-        items.sort((a, b) => b.score - a.score);
-        return { found: true, ...items[0] };
-      });
+          // Check for the requested targetQuality first
+          const exactEnabled = optionRows.find((o) => o.bucket === targetQ && o.enabled);
+          if (exactEnabled) {
+            exactEnabled.el.setAttribute('data-bot-dl-quality-option', 'true');
+            return {
+              menuOpen: true,
+              matched: true,
+              fallbackUsed: false,
+              x: exactEnabled.x,
+              y: exactEnabled.y,
+              label: exactEnabled.label
+            };
+          }
 
-      if (menuChoice && menuChoice.found) {
-        this.log(`Selecting download menu option "${menuChoice.label}"...`);
-        await this.page.mouse.click(menuChoice.x, menuChoice.y, { delay: 50 });
-      }
+          // Requested quality is disabled or not listed -> fall back to 720p (Original) or highest available enabled resolution
+          const fallbackOrder = ['720p', '2k', '1080p', '4k'];
+          for (const fbKey of fallbackOrder) {
+            const fbMatch = optionRows.find((o) => o.bucket === fbKey && o.enabled);
+            if (fbMatch) {
+              fbMatch.el.setAttribute('data-bot-dl-quality-option', 'true');
+              return {
+                menuOpen: true,
+                matched: false,
+                fallbackUsed: true,
+                x: fbMatch.x,
+                y: fbMatch.y,
+                label: fbMatch.label
+              };
+            }
+          }
+
+          return { menuOpen: true, matched: false, fallbackUsed: false };
+        }, desiredQuality)
+        .catch(() => ({ menuOpen: false }));
     };
 
     const hasAnyDownloadActivity = () => {
@@ -6244,6 +6495,110 @@ class FlowController extends EventEmitter {
         });
       };
       return checkDir(stagingDir, existingStaged) || checkDir(osDownloadsDir, existingOsFiles);
+    };
+
+    const clickQualityMenuIfOpened = async () => {
+      await this._interruptibleSleep(650);
+      let menuRes = await inspectQualityPopover(targetQuality);
+
+      // If no quality popover detected yet and no direct download started, wait briefly / retry trigger click once
+      if ((!menuRes || !menuRes.menuOpen) && !hasAnyDownloadActivity()) {
+        await this._interruptibleSleep(550);
+        menuRes = await inspectQualityPopover(targetQuality);
+      }
+      if ((!menuRes || !menuRes.menuOpen) && !hasAnyDownloadActivity()) {
+        await this.page
+          .evaluate(() => {
+            const btn = document.querySelector('[data-bot-dl-trigger="true"]');
+            if (btn && typeof btn.click === 'function') btn.click();
+          })
+          .catch(() => {});
+        await this._interruptibleSleep(650);
+        menuRes = await inspectQualityPopover(targetQuality);
+      }
+
+      if (!menuRes || !menuRes.menuOpen) {
+        return;
+      }
+
+      if (menuRes.fallbackUsed) {
+        this.log(
+          `⚠️ Quality "${targetQuality.toUpperCase()}" is unavailable/disabled for this video — falling back to 720p (Original)...`,
+          'warn'
+        );
+      }
+
+      if (Number.isFinite(menuRes.x) && Number.isFinite(menuRes.y)) {
+        await this.humanMoveAndClick(menuRes.x, menuRes.y);
+        await this._interruptibleSleep(450);
+
+        // Direct .click() fallback if the quality menu remained open
+        const stillOpenCheck = await inspectQualityPopover(targetQuality);
+        if (stillOpenCheck && stillOpenCheck.menuOpen) {
+          await this.page
+            .evaluate(() => {
+              const opt = document.querySelector('[data-bot-dl-quality-option="true"]');
+              if (opt && typeof opt.click === 'function') opt.click();
+            })
+            .catch(() => {});
+          await this._interruptibleSleep(350);
+        }
+
+        this.log(
+          `✅ Selected "${menuRes.label}" from Google Flow download quality menu.`,
+          'success'
+        );
+      }
+    };
+
+    const clickSecondaryUpscaleDownloadToastIfPresent = async () => {
+      return this.page
+        .evaluate(() => {
+          const isVisible = (el) => {
+            if (!el) return false;
+            try {
+              const style = window.getComputedStyle(el);
+              if (
+                style.display === 'none' ||
+                style.visibility === 'hidden' ||
+                parseFloat(style.opacity || '1') <= 0.05
+              ) {
+                return false;
+              }
+              const r = el.getBoundingClientRect();
+              return r.width > 16 && r.height > 14;
+            } catch (_) {
+              return false;
+            }
+          };
+
+          const toasts = Array.from(
+            document.querySelectorAll(
+              '[role="alert"], [role="status"], .mat-mdc-snack-bar-container, [class*="toast" i], [class*="snackbar" i], [class*="notification" i]'
+            )
+          ).filter(isVisible);
+
+          for (const t of toasts) {
+            const btns = Array.from(t.querySelectorAll('button, a, [role="button"]')).filter(
+              isVisible
+            );
+            for (const b of btns) {
+              const txt = (
+                (b.innerText || b.textContent || '') +
+                ' ' +
+                (b.getAttribute('aria-label') || '')
+              )
+                .trim()
+                .toLowerCase();
+              if (txt.includes('download')) {
+                b.click();
+                return true;
+              }
+            }
+          }
+          return false;
+        })
+        .catch(() => false);
     };
 
     try {
@@ -6268,8 +6623,23 @@ class FlowController extends EventEmitter {
 
       let triggered = false;
 
-      // Step C1: Hover Card #0 to reveal its inline Download button
+      // Primary Method 3 Flow: Click Card #0 to open video detail view and click top toolbar Download button
       if (card0 && card0.found) {
+        this.log(`Opening Card #0 detail view to click top toolbar Download button...`);
+        await this.page.mouse.click(card0.centerX, card0.centerY);
+        await this._interruptibleSleep(2200);
+
+        const modalBtn = await findDownloadButtonCoords(null);
+        if (modalBtn && modalBtn.found) {
+          this.log(`Clicking top toolbar Download button ("${modalBtn.label}")...`);
+          await this.page.mouse.click(modalBtn.x, modalBtn.y, { delay: 50 });
+          await clickQualityMenuIfOpened();
+          triggered = true;
+        }
+      }
+
+      // Fallback: Hover Card #0 to reveal its inline Download button if detail view button wasn't found
+      if (!triggered && card0 && card0.found) {
         await this.page.mouse.move(card0.centerX, card0.centerY, { steps: 6 });
         await this._interruptibleSleep(1200);
 
@@ -6283,22 +6653,6 @@ class FlowController extends EventEmitter {
           this.log(`Clicking native Download button on Card #0 ("${hoverBtn.label}")...`);
           await this.page.mouse.click(hoverBtn.x, hoverBtn.y, { delay: 50 });
           await clickQualityMenuIfOpened();
-          await this._interruptibleSleep(2500);
-          triggered = hasAnyDownloadActivity();
-        }
-      }
-
-      // Step C2: Click Card #0 to open its preview modal and click the modal Download button
-      if (!triggered && card0 && card0.found) {
-        this.log(`Opening Card #0 preview modal to click native Download button...`);
-        await this.page.mouse.click(card0.centerX, card0.centerY);
-        await this._interruptibleSleep(2200);
-
-        const modalBtn = await findDownloadButtonCoords(null);
-        if (modalBtn && modalBtn.found) {
-          this.log(`Clicking native Download button in Card #0 preview ("${modalBtn.label}")...`);
-          await this.page.mouse.click(modalBtn.x, modalBtn.y, { delay: 50 });
-          await clickQualityMenuIfOpened();
           triggered = true;
         }
       }
@@ -6307,10 +6661,15 @@ class FlowController extends EventEmitter {
         return null;
       }
 
-      // Wait up to 45 seconds for the completed non-.crdownload file to finish writing & stabilize
-      const waitDeadline = Date.now() + 45000;
+      // Extend wait timeout to 150,000ms (2.5 minutes) for upscaled resolutions (1080p, 2K, 4K),
+      // keeping 45,000ms for 720p, and poll every 500ms so it finishes immediately when .mp4 completes
+      const isUpscaledResolution = targetQuality !== '720p';
+      const waitTimeoutMs = isUpscaledResolution ? 150000 : 45000;
+      const waitDeadline = Date.now() + waitTimeoutMs;
       let lastSeenPath = null;
       let lastSeenSize = -1;
+      let lastSecondaryToastCheckAt = Date.now();
+      let lastUpscaleProgressLogAt = Date.now();
 
       while (Date.now() < waitDeadline) {
         if (this.state === BOT_STATES.STOPPED) {
@@ -6349,13 +6708,44 @@ class FlowController extends EventEmitter {
           }
           lastSeenPath = found.file;
           lastSeenSize = found.size;
+        } else if (!stagedScan.hasPending && !osScan.hasPending) {
+          // While waiting for server-side upscaling before .crdownload begins, check for any secondary Download button toast
+          if (Date.now() - lastSecondaryToastCheckAt >= 2500) {
+            lastSecondaryToastCheckAt = Date.now();
+            const clickedToastBtn = await clickSecondaryUpscaleDownloadToastIfPresent();
+            if (clickedToastBtn) {
+              this.log(
+                '📥 Clicked secondary Download button on upscaling completion notification.',
+                'info'
+              );
+            }
+          }
+          if (isUpscaledResolution && Date.now() - lastUpscaleProgressLogAt >= 15000) {
+            lastUpscaleProgressLogAt = Date.now();
+            const waitedSec = Math.round((Date.now() - methodStartTime) / 1000);
+            this.log(
+              `⏳ Waiting for Google Flow ${targetQuality.toUpperCase()} upscaling & download... (${waitedSec}s / ${Math.round(
+                waitTimeoutMs / 1000
+              )}s)`
+            );
+          }
         }
 
-        await this._interruptibleSleep(1000);
+        await this._interruptibleSleep(500);
       }
 
       return null;
     } finally {
+      await this.page
+        .evaluate(() => {
+          document
+            .querySelectorAll('[data-bot-dl-trigger], [data-bot-dl-quality-option]')
+            .forEach((el) => {
+              el.removeAttribute('data-bot-dl-trigger');
+              el.removeAttribute('data-bot-dl-quality-option');
+            });
+        })
+        .catch(() => {});
       await this.page.keyboard.press('Escape').catch(() => {});
       await this._interruptibleSleep(600);
       await this.page.mouse.move(10, 10).catch(() => {});

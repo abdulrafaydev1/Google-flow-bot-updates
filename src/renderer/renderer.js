@@ -63,6 +63,18 @@
     statCompleted: document.getElementById('statCompleted'),
     statFailed: document.getElementById('statFailed'),
 
+    // Mission Control Live Stopwatch & ETA Telemetry
+    missionTimeTelemetry: document.getElementById('missionTimeTelemetry'),
+    timerStateBadge: document.getElementById('timerStateBadge'),
+    timerElapsedValue: document.getElementById('timerElapsedValue'),
+    timerElapsedMain: document.getElementById('timerElapsedMain'),
+    timerElapsedMs: document.getElementById('timerElapsedMs'),
+    timerElapsedSub: document.getElementById('timerElapsedSub'),
+    timerEtaValue: document.getElementById('timerEtaValue'),
+    timerFinishAt: document.getElementById('timerFinishAt'),
+    timerPaceValue: document.getElementById('timerPaceValue'),
+    timerCurrentPrompt: document.getElementById('timerCurrentPrompt'),
+
     // Terminal Log
     chkAutoScroll: document.getElementById('chkAutoScroll'),
     btnCopyLogs: document.getElementById('btnCopyLogs'),
@@ -101,6 +113,7 @@
     settingAutoStartAfterLaunch: document.getElementById('settingAutoStartAfterLaunch'),
     settingFlowAgentMode: document.getElementById('settingFlowAgentMode'),
     settingFlowViewMode: document.getElementById('settingFlowViewMode'),
+    settingDownloadQuality: document.getElementById('settingDownloadQuality'),
 
     // ChatGPT Auto Modal & Live Header Pill
     btnOpenChatgptAuto: document.getElementById('btnOpenChatgptAuto'),
@@ -320,7 +333,291 @@
     // Prevent destructive queue clear while actively running
     els.btnClearAll.disabled = isRunning;
     els.btnClearCompleted.disabled = isRunning;
+
+    missionTimer.sync(currentState, currentQueue);
   }
+
+  // =========================================================================
+  // DRIFT-FREE HIGH-PRECISION STOPWATCH (HH:MM:SS.ms) & ADAPTIVE ETA ENGINE
+  // =========================================================================
+  const missionTimer = {
+    isRunning: false,
+    isPaused: false,
+    accumulatedMs: 0,
+    segmentStartPerf: 0,
+    currentPromptStartPerf: 0,
+    currentPromptAccumulatedMs: 0,
+    completedInRun: 0,
+    lastCompletedCount: 0,
+    badgeMode: 'READY',
+    intervalId: null,
+
+    formatElapsedHMSms(ms) {
+      const safeMs = Math.max(0, Number(ms) || 0);
+      const totalSeconds = Math.floor(safeMs / 1000);
+      const hours = Math.floor(totalSeconds / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      const seconds = totalSeconds % 60;
+      const centiseconds = Math.floor((safeMs % 1000) / 10);
+      return {
+        main: `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(
+          seconds
+        ).padStart(2, '0')}`,
+        ms: `.${String(centiseconds).padStart(2, '0')}`
+      };
+    },
+
+    formatCountdownHMS(ms) {
+      const safeMs = Math.max(0, Number(ms) || 0);
+      const totalSeconds = Math.ceil(safeMs / 1000);
+      const hours = Math.floor(totalSeconds / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      const seconds = totalSeconds % 60;
+      return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(
+        seconds
+      ).padStart(2, '0')}`;
+    },
+
+    formatFinishClock(etaMs) {
+      const targetDate = new Date(Date.now() + Math.max(0, Number(etaMs) || 0));
+      let hours = targetDate.getHours();
+      const minutes = String(targetDate.getMinutes()).padStart(2, '0');
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      hours = hours % 12;
+      if (hours === 0) hours = 12;
+      return `Finishes ~${String(hours).padStart(2, '0')}:${minutes} ${ampm}`;
+    },
+
+    getActiveElapsedMs() {
+      if (this.isRunning && !this.isPaused) {
+        return this.accumulatedMs + Math.max(0, performance.now() - this.segmentStartPerf);
+      }
+      return this.accumulatedMs;
+    },
+
+    getCurrentPromptElapsedMs() {
+      if (this.isRunning && !this.isPaused) {
+        return (
+          this.currentPromptAccumulatedMs +
+          Math.max(0, performance.now() - this.currentPromptStartPerf)
+        );
+      }
+      return this.currentPromptAccumulatedMs;
+    },
+
+    getBaselineMsPerPrompt() {
+      const cfg = currentConfig || {};
+      const prePasteMin = Number(cfg.prePasteDelayMinSec ?? cfg.prePasteDelayMin ?? 2);
+      const prePasteMax = Number(cfg.prePasteDelayMaxSec ?? cfg.prePasteDelayMax ?? 5);
+      const preSubmitMin = Number(cfg.preSubmitDelayMinSec ?? cfg.preSubmitDelayMin ?? 1);
+      const preSubmitMax = Number(cfg.preSubmitDelayMaxSec ?? cfg.preSubmitDelayMax ?? 3);
+
+      const avgPrePaste = ((prePasteMin + prePasteMax) / 2) * 1000;
+      const avgPreSubmit = ((preSubmitMin + preSubmitMax) / 2) * 1000;
+      const qualityBase = cfg.downloadQuality && cfg.downloadQuality !== '720p' ? 68000 : 45000;
+      const videosPerPrompt = Math.max(
+        1,
+        Number(
+          (els.videosPerPromptInput && els.videosPerPromptInput.value) || cfg.videosPerPrompt || 1
+        )
+      );
+      return (avgPrePaste + avgPreSubmit + qualityBase) * videosPerPrompt;
+    },
+
+    _startTicker() {
+      if (this.intervalId) return;
+      this.intervalId = setInterval(() => {
+        this.render();
+      }, 50);
+    },
+
+    _stopTicker() {
+      if (this.intervalId) {
+        clearInterval(this.intervalId);
+        this.intervalId = null;
+      }
+    },
+
+    sync(botState = currentState, queue = currentQueue) {
+      const safeQueue = Array.isArray(queue) ? queue : [];
+      const pendingCount = safeQueue.filter((i) => i.status === 'Pending').length;
+      const generatingCount = safeQueue.filter((i) => i.status === 'Generating').length;
+      const completedCount = safeQueue.filter((i) => i.status === 'Completed').length;
+      const remainingPrompts = pendingCount + generatingCount;
+
+      const nowRunning = botState === 'RUNNING' || botState === 'PAUSED';
+      const nowPaused = botState === 'PAUSED';
+      const nowPerf = performance.now();
+
+      if (!this.isRunning && nowRunning) {
+        // Run started
+        this.isRunning = true;
+        this.isPaused = nowPaused;
+        this.accumulatedMs = 0;
+        this.completedInRun = 0;
+        this.lastCompletedCount = completedCount;
+        this.currentPromptAccumulatedMs = 0;
+        this.segmentStartPerf = nowPerf;
+        this.currentPromptStartPerf = nowPerf;
+        this.badgeMode = nowPaused ? 'PAUSED' : 'LIVE';
+        if (!nowPaused) {
+          this._startTicker();
+        }
+      } else if (this.isRunning && nowRunning) {
+        // Detect prompt completions during the active run
+        if (completedCount > this.lastCompletedCount) {
+          this.completedInRun += completedCount - this.lastCompletedCount;
+          this.lastCompletedCount = completedCount;
+          this.currentPromptAccumulatedMs = 0;
+          this.currentPromptStartPerf = nowPerf;
+        } else if (completedCount < this.lastCompletedCount) {
+          this.lastCompletedCount = completedCount;
+        }
+
+        if (!this.isPaused && nowPaused) {
+          // Transitioned RUNNING -> PAUSED
+          this.accumulatedMs += Math.max(0, nowPerf - this.segmentStartPerf);
+          this.currentPromptAccumulatedMs += Math.max(0, nowPerf - this.currentPromptStartPerf);
+          this.isPaused = true;
+          this.badgeMode = 'PAUSED';
+          this._stopTicker();
+        } else if (this.isPaused && !nowPaused) {
+          // Transitioned PAUSED -> RUNNING
+          this.segmentStartPerf = nowPerf;
+          this.currentPromptStartPerf = nowPerf;
+          this.isPaused = false;
+          this.badgeMode = 'LIVE';
+          this._startTicker();
+        }
+      } else if (this.isRunning && !nowRunning) {
+        // Stopped or batch finished
+        if (!this.isPaused) {
+          this.accumulatedMs += Math.max(0, nowPerf - this.segmentStartPerf);
+          this.currentPromptAccumulatedMs += Math.max(0, nowPerf - this.currentPromptStartPerf);
+        }
+        if (completedCount > this.lastCompletedCount) {
+          this.completedInRun += completedCount - this.lastCompletedCount;
+          this.lastCompletedCount = completedCount;
+        }
+        this.isRunning = false;
+        this.isPaused = false;
+        this._stopTicker();
+        this.badgeMode =
+          remainingPrompts === 0 && (this.completedInRun > 0 || completedCount > 0)
+            ? 'DONE'
+            : 'STOPPED';
+      } else {
+        // Idle / Not running
+        this.lastCompletedCount = completedCount;
+        if (safeQueue.length === 0) {
+          if (this.accumulatedMs === 0) {
+            this.badgeMode = 'READY';
+          }
+        } else if (remainingPrompts > 0 && this.accumulatedMs === 0) {
+          this.badgeMode = 'READY';
+        }
+      }
+
+      this.render();
+    },
+
+    render() {
+      if (!els.timerElapsedValue) return;
+
+      const safeQueue = Array.isArray(currentQueue) ? currentQueue : [];
+      const total = safeQueue.length;
+      const pendingCount = safeQueue.filter((i) => i.status === 'Pending').length;
+      const generatingCount = safeQueue.filter((i) => i.status === 'Generating').length;
+      const completedCount = safeQueue.filter((i) => i.status === 'Completed').length;
+      const remainingPrompts = pendingCount + generatingCount;
+
+      const elapsedMs = this.getActiveElapsedMs();
+      const currentPromptElapsedMs = this.getCurrentPromptElapsedMs();
+      const formattedElapsed = this.formatElapsedHMSms(elapsedMs);
+
+      if (els.timerElapsedMain && els.timerElapsedMs) {
+        els.timerElapsedMain.textContent = formattedElapsed.main;
+        els.timerElapsedMs.textContent = formattedElapsed.ms;
+      } else {
+        els.timerElapsedValue.textContent = `${formattedElapsed.main}${formattedElapsed.ms}`;
+      }
+
+      // Status Pill Badge
+      if (els.timerStateBadge) {
+        els.timerStateBadge.textContent = this.badgeMode;
+        const badgeClassMap = {
+          LIVE: 'timer-state-badge is-live',
+          PAUSED: 'timer-state-badge is-paused',
+          DONE: 'timer-state-badge is-done',
+          STOPPED: 'timer-state-badge is-paused',
+          READY: 'timer-state-badge is-ready'
+        };
+        els.timerStateBadge.className =
+          badgeClassMap[this.badgeMode] || 'timer-state-badge is-ready';
+      }
+
+      if (els.timerElapsedSub) {
+        if (this.isRunning && !this.isPaused) {
+          els.timerElapsedSub.textContent =
+            this.completedInRun > 0
+              ? `${this.completedInRun} finished this run`
+              : 'Generating batch...';
+        } else if (this.isPaused) {
+          els.timerElapsedSub.textContent = 'Timer frozen (Paused)';
+        } else if (this.badgeMode === 'DONE') {
+          els.timerElapsedSub.textContent = `Batch completed (${this.completedInRun || completedCount} done)`;
+        } else if (this.badgeMode === 'STOPPED') {
+          els.timerElapsedSub.textContent = 'Locked at stop time';
+        } else {
+          els.timerElapsedSub.textContent = 'Session stopwatch';
+        }
+      }
+
+      // Smart Adaptive Pace & Remaining Time (ETA)
+      const baselineMsPerPrompt = this.getBaselineMsPerPrompt();
+      let effectiveMsPerPrompt = baselineMsPerPrompt;
+      if (this.completedInRun === 1 && elapsedMs > 5000) {
+        effectiveMsPerPrompt = 0.65 * (elapsedMs / 1) + 0.35 * baselineMsPerPrompt;
+      } else if (this.completedInRun >= 2 && elapsedMs > 5000) {
+        effectiveMsPerPrompt = elapsedMs / this.completedInRun;
+      }
+
+      if (els.timerEtaValue && els.timerFinishAt) {
+        if (remainingPrompts <= 0) {
+          if (total > 0 && (completedCount > 0 || this.completedInRun > 0)) {
+            els.timerEtaValue.textContent = '00:00:00';
+            els.timerFinishAt.textContent = 'All prompts finished!';
+          } else {
+            els.timerEtaValue.textContent = '--:--:--';
+            els.timerFinishAt.textContent = 'Add prompts to estimate';
+          }
+        } else {
+          const activeDeduction = this.isRunning
+            ? Math.min(currentPromptElapsedMs, Math.max(0, effectiveMsPerPrompt - 4000))
+            : 0;
+          const etaMs = Math.max(
+            1000,
+            remainingPrompts * effectiveMsPerPrompt - activeDeduction
+          );
+          els.timerEtaValue.textContent = this.formatCountdownHMS(etaMs);
+          els.timerFinishAt.textContent = this.formatFinishClock(etaMs);
+        }
+      }
+
+      if (els.timerPaceValue) {
+        if (this.isRunning || this.completedInRun > 0 || remainingPrompts > 0) {
+          els.timerPaceValue.textContent = `~${(effectiveMsPerPrompt / 1000).toFixed(1)}s`;
+        } else {
+          els.timerPaceValue.textContent = '--.-s';
+        }
+      }
+
+      if (els.timerCurrentPrompt) {
+        const promptSec = this.isRunning ? (currentPromptElapsedMs / 1000).toFixed(1) : '0.0';
+        els.timerCurrentPrompt.textContent = `Current: ${promptSec}s`;
+      }
+    }
+  };
 
   // =========================================================================
   // QUEUE TABLE & PROGRESS BAR RENDERING
@@ -453,6 +750,8 @@
     els.progressFractionText.textContent = `${completedCount} / ${total}`;
     els.progressPercentText.textContent = `${pct}%`;
     els.progressBarFill.style.width = `${pct}%`;
+
+    missionTimer.sync(currentState, currentQueue);
 
     // Toggle Empty State vs Table Rows
     if (total === 0) {
@@ -895,6 +1194,13 @@
         ? cfg.flowViewMode
         : 'off';
     }
+
+    if (els.settingDownloadQuality) {
+      const q = String(cfg.downloadQuality || '720p').toLowerCase();
+      els.settingDownloadQuality.value = ['720p', '1080p', '2k', '4k'].includes(q) ? q : '720p';
+    }
+
+    missionTimer.render();
   }
 
   function openSettingsModal() {
@@ -1465,6 +1771,13 @@
           ? els.settingFlowViewMode.value
           : 'off';
 
+      const selectedQ = els.settingDownloadQuality
+        ? String(els.settingDownloadQuality.value || '720p').toLowerCase()
+        : '720p';
+      const downloadQuality = ['720p', '1080p', '2k', '4k'].includes(selectedQ)
+        ? selectedQ
+        : '720p';
+
       const validSubmitMethods = ['random', 'click', 'enter'];
       const rawSubmitMethod = els.settingSubmitMethod
         ? String(els.settingSubmitMethod.value || 'random').toLowerCase()
@@ -1505,13 +1818,14 @@
         autoSwitchServerOnFailure: autoSwitchServer,
         autoStartAfterLaunch,
         flowAgentMode,
-        flowViewMode
+        flowViewMode,
+        downloadQuality
       };
 
       const saved = await window.flowBotAPI.updateConfig(updatedPayload);
       populateSettingsModal(saved);
       logLocal(
-        `Settings saved: Flow Agent (${String(saved.flowAgentMode || 'off').toUpperCase()}), View Mode (${String(saved.flowViewMode || 'off').toUpperCase()}), Auto-Start (${saved.autoStartAfterLaunch !== false ? 'ON' : 'OFF'}), Card Retry (${saved.cardRetryClicksMin}–${saved.cardRetryClicksMax} clicks).`,
+        `Settings saved: Download Quality (${String(saved.downloadQuality || '720p').toUpperCase()}), Flow Agent (${String(saved.flowAgentMode || 'off').toUpperCase()}), View Mode (${String(saved.flowViewMode || 'off').toUpperCase()}), Auto-Start (${saved.autoStartAfterLaunch !== false ? 'ON' : 'OFF'}), Card Retry (${saved.cardRetryClicksMin}–${saved.cardRetryClicksMax} clicks).`,
         'success'
       );
       closeSettingsModal();
